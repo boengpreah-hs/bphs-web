@@ -130,6 +130,27 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Set Browser Tab icon (favicon) based on school logo
+  useEffect(() => {
+    if (dbState?.school_logo) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = dbState.school_logo;
+
+      let shortcutLink: HTMLLinkElement | null = document.querySelector("link[rel~='shortcut']");
+      if (!shortcutLink) {
+        shortcutLink = document.createElement('link');
+        shortcutLink.rel = 'shortcut icon';
+        document.getElementsByTagName('head')[0].appendChild(shortcutLink);
+      }
+      shortcutLink.href = dbState.school_logo;
+    }
+  }, [dbState?.school_logo]);
+
   // Sync state back to the Express endpoint
   const pushState = async (incomingPartial: Partial<DBState>) => {
     if (!dbState) return;
