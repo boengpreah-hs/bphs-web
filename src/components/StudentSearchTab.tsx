@@ -45,7 +45,6 @@ export default function StudentSearchTab({
       await Promise.all(promises);
 
       const canvas = await html2canvasSafe(cardRef.current, {
-        scale: 1, // original scale, original width/height of 375x500
         useCORS: true,
         backgroundColor: null,
         logging: false
