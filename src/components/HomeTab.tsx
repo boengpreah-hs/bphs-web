@@ -421,51 +421,53 @@ export default function HomeTab({
 
                 {/* Grid of current slides with individual Delete/Replace actions */}
                 {slides.length > 0 && (
-                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-3 border-t border-gray-150">
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 pt-3 border-t border-gray-150">
                     {slides.map((slide, idx) => (
-                      <div key={idx} className="relative border border-gray-200 rounded overflow-hidden aspect-[16/9] bg-slate-900 shadow-sm flex flex-col justify-end">
+                      <div key={idx} className="relative border border-gray-200 rounded-lg overflow-hidden aspect-[16/9] bg-slate-900 shadow-md flex flex-col justify-end group/thumb">
                         <img src={slide} className="w-full h-full object-cover" alt="" />
                         
                         {/* Slide Number Badge */}
-                        <div className="absolute top-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono font-extrabold z-10">
+                        <div className="absolute top-1.5 left-1.5 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-xs font-mono font-bold z-10 select-none border border-white/10">
                           #{idx + 1}
                         </div>
 
-                        {/* Always visible solid actions bar for pristine Mobile and Desktop usability */}
-                        <div className="absolute inset-x-0 bottom-0 bg-black/75 p-1 flex items-center justify-center gap-1.5 z-10">
-                          {/* Replace Action */}
-                          <label 
-                            id={`btn-replace-slide-${idx}`}
-                            className="p-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded cursor-pointer flex items-center justify-center transition-all duration-150 shadow-xs" 
-                            title="ប្ដូររូបភាព"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleReplaceSlide(e, idx)}
-                              className="hidden"
-                            />
-                          </label>
+                        {/* Beautiful gradient overlay with glassmorphism control buttons (very visible yet transparent) */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex flex-col justify-end p-2 z-10">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Replace Action */}
+                            <label 
+                              id={`btn-replace-slide-${idx}`}
+                              className="w-9 h-9 bg-white/20 hover:bg-amber-500 text-white hover:text-slate-950 rounded-full cursor-pointer flex items-center justify-center transition-all duration-150 shadow-md backdrop-blur-md border border-white/25 active:scale-90" 
+                              title="ប្ដូររូបភាព"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleReplaceSlide(e, idx)}
+                                className="hidden"
+                              />
+                            </label>
 
-                          {/* Delete Action */}
-                          <button
-                            id={`btn-delete-slide-${idx}`}
-                            type="button"
-                            onClick={() => handleDeleteSlide(idx)}
-                            className={`p-1.5 rounded text-white cursor-pointer select-none transition-all duration-150 flex items-center justify-center shadow-xs ${
-                              slideToDeleteIndex === idx 
-                                ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2 animate-pulse font-extrabold' 
-                                : 'bg-red-650 hover:bg-red-500'
-                            }`}
-                            title={slideToDeleteIndex === idx ? "ចុចម្ដងទៀតដើម្បីលុប" : "លុប"}
-                          >
-                            {slideToDeleteIndex === idx ? (
-                              <span className="text-[9px] leading-none">ចង់លុប?</span>
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                            {/* Delete Action */}
+                            <button
+                              id={`btn-delete-slide-${idx}`}
+                              type="button"
+                              onClick={() => handleDeleteSlide(idx)}
+                              className={`w-9 h-9 rounded-full text-white cursor-pointer select-none transition-all duration-150 flex items-center justify-center shadow-md backdrop-blur-md border active:scale-90 ${
+                                slideToDeleteIndex === idx 
+                                  ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 border-yellow-400 w-auto px-3 rounded-lg animate-pulse font-bold text-[10px]' 
+                                  : 'bg-red-500/20 hover:bg-red-650 border-white/25 text-red-100'
+                              }`}
+                              title={slideToDeleteIndex === idx ? "ចុចម្ដងទៀតដើម្បីលុប" : "លុប"}
+                            >
+                              {slideToDeleteIndex === idx ? (
+                                <span className="text-[10px] uppercase tracking-wider">ចង់លុប?</span>
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
