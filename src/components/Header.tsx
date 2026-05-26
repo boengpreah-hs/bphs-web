@@ -130,7 +130,7 @@ export default function Header({
                 className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer transform hover:scale-105 active:scale-95 duration-150"
               >
                 <LogIn className="w-4 h-4" />
-                <span>ចូលគ្រូគ្រប់គ្រង (Admin)</span>
+                <span>គណនី Admin</span>
               </button>
             ) : (
               <div id="admin-session-indicator" className="text-amber-400 flex items-center gap-2 font-battambang">
