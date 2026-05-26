@@ -12,12 +12,14 @@ interface AboutProps {
   dbState: DBState;
   isAdminLoggedIn: boolean;
   onUpdateDB: (data: Partial<DBState>) => Promise<void>;
+  onZoomImage?: (src: string, allImages?: string[]) => void;
 }
 
 export default function AboutSchoolTab({
   dbState,
   isAdminLoggedIn,
   onUpdateDB,
+  onZoomImage,
 }: AboutProps) {
   const [showEdit, setShowEdit] = useState(false);
 
@@ -213,7 +215,7 @@ export default function AboutSchoolTab({
     <div className="bg-white p-3.5 rounded shadow-xs border-t-4 border-blue-900 space-y-4">
       <div className="flex justify-between items-center border-b pb-3">
         <h2 className="text-sm md:text-base font-bold font-moul text-blue-900 flex items-center gap-1.5">
-          <Info className="w-5 h-5 text-amber-500" /> អំពីសាលារៀនរបស់យើងខ្ញុំ
+          <Info className="w-5 h-5 text-amber-500" /> ព័ត៌មានសង្ខេបរបស់សាលារៀន
         </h2>
         {isAdminLoggedIn && !showEdit && (
           <button
@@ -248,7 +250,13 @@ export default function AboutSchoolTab({
                 <span className="font-bold text-[#0f2c59]">លេខទូរស័ព្ទទំនាក់ទំនងសាលា</span>
                 <div className="flex items-center gap-1">
                   <span>លេខទូរស័ព្ទ៖</span>
-                  <span className="font-bold text-blue-900">{activeAbout.phone || '0966187972'}</span>
+                  <a
+                    href={`tel:${activeAbout.phone || '0966187972'}`}
+                    className="font-bold text-blue-900 hover:underline hover:text-blue-800"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {activeAbout.phone || '0966187972'}
+                  </a>
                 </div>
               </div>
             </div>
@@ -274,11 +282,11 @@ export default function AboutSchoolTab({
 
           {/* STAFF & BOARD SECTION */}
           <div className="border-t pt-6 space-y-4">
-            <div className="flex justify-between items-center bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
+            <div className="flex justify-between items-center border-b pb-3">
               <h2 className="text-sm md:text-base font-bold font-moul text-blue-900 flex items-center gap-1.5">
                 <Users className="w-5 h-5 text-amber-500" /> គណៈគ្រប់គ្រង លោកគ្រូ-អ្នកគ្រូ
               </h2>
-              {isAdminLoggedIn && (
+              {isAdminLoggedIn && staffList.length === 0 && (
                 <button
                   onClick={handleAddNewStaffCard}
                   className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1 font-battambang"
@@ -291,10 +299,10 @@ export default function AboutSchoolTab({
             {/* Staff Grid containing card-shaped profiles */}
             {staffList.length === 0 ? (
               <div className="py-8 text-center text-gray-400 font-battambang text-xs border border-dashed rounded-xl">
-                មិនទាន់មានព័ត៌មានបុគ្គលិកសិក្សាឡើយ។ {isAdminLoggedIn && 'សូមចុចប៊ូតុងខាងលើដើម្បីបញ្ជូលសមាជិកថ្មី!'}
+                គ្មានទិន្នន័យគ្រូទេ! {isAdminLoggedIn && 'សូមចុចប៊ូតុងខាងលើដើម្បីបញ្ជូលសមាជិកថ្មី!'}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full items-start">
                 {staffList.map((member) => {
                   const isEditingThis = editingStaffId === member.id;
 
@@ -461,8 +469,9 @@ export default function AboutSchoolTab({
                           <img
                             src={member.photo}
                             alt={member.name}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover cursor-zoom-in hover:scale-105 transition duration-250"
                             referrerPolicy="no-referrer"
+                            onClick={() => onZoomImage?.(member.photo!)}
                           />
                         ) : (
                           <User className="w-16 h-16 text-slate-400 stroke-1" />
