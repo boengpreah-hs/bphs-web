@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FileSpreadsheet,
   FileDown,
@@ -96,6 +96,164 @@ async function html2canvasSafe(element: HTMLElement, options: any = {}): Promise
   }
 }
 
+const khmerMonths = [
+  "មករា", "កុម្ភៈ", "មីនា", "មេសា", "ឧសភា", "មិថុនា",
+  "កក្កដា", "សីហា", "កញ្ញា", "តុលា", "វិច្ឆិកា", "ធ្នូ"
+];
+
+const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+
+function convertToKhmerDigit(numStr: string): string {
+  return numStr.split('').map(char => {
+    const d = parseInt(char, 10);
+    return isNaN(d) ? char : khmerDigits[d];
+  }).join('');
+}
+
+function convertFromKhmerDigit(khmerStr: string): string {
+  const mapping: { [key: string]: string } = {
+    '០':'0', '១':'1', '២':'2', '៣':'3', '៤':'4',
+    '៥':'5', '៦':'6', '៧':'7', '៨':'8', '៩':'9'
+  };
+  return khmerStr.split('').map(char => mapping[char] || char).join('');
+}
+
+function formatDobToKhmer(dobStr: string): string {
+  if (!dobStr) return '';
+  if (/[\u1780-\u17F9]/.test(dobStr)) {
+    return dobStr;
+  }
+
+  let day = '';
+  let month = '';
+  let year = '';
+
+  const cleaned = dobStr.replace(/\s+/g, '');
+  const matchSlash = cleaned.split(/[\/-]/);
+  
+  if (matchSlash.length === 3) {
+    if (matchSlash[0].length === 4) {
+      year = matchSlash[0];
+      month = matchSlash[1];
+      day = matchSlash[2];
+    } else {
+      day = matchSlash[0];
+      month = matchSlash[1];
+      year = matchSlash[2];
+    }
+  } else {
+    return dobStr;
+  }
+
+  const dayNum = parseInt(day, 10);
+  const monthNum = parseInt(month, 10);
+  const yearNum = parseInt(year, 10);
+
+  if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum) || monthNum < 1 || monthNum > 12) {
+    return dobStr;
+  }
+
+  const khmerDay = convertToKhmerDigit(String(dayNum).padStart(2, '0'));
+  const khmerMonth = khmerMonths[monthNum - 1];
+  const khmerYear = convertToKhmerDigit(String(yearNum));
+
+  return `${khmerDay}-${khmerMonth}-${khmerYear}`;
+}
+
+function formatDobToEnglish(khmerDob: string): string {
+  if (!khmerDob) return '';
+  if (/\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(khmerDob)) {
+    return khmerDob;
+  }
+  
+  const parts = khmerDob.replace(/\s+/g, '').split('-');
+  if (parts.length === 3) {
+    const [khmerDay, khmerMonth, khmerYear] = parts;
+    const engDay = convertFromKhmerDigit(khmerDay);
+    const engYear = convertFromKhmerDigit(khmerYear);
+    
+    const monthIndex = khmerMonths.indexOf(khmerMonth.trim());
+    if (monthIndex !== -1) {
+      const engMonth = String(monthIndex + 1).padStart(2, '0');
+      return `${engDay.padStart(2, '0')}/${engMonth}/${engYear}`;
+    }
+  }
+  return khmerDob;
+}
+
+interface EditableSelectProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  placeholder?: string;
+  className?: string;
+  required?: boolean;
+}
+
+function EditableSelect({
+  value,
+  onChange,
+  options,
+  placeholder = '',
+  className = '',
+  required = false
+}: EditableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          required={required}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 ${className}`}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="absolute right-0 top-0 bottom-0 px-2.5 text-gray-500 hover:text-gray-700 select-none cursor-pointer"
+        >
+          <svg className="w-4 h-4 text-gray-450" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+      {isOpen && options.length > 0 && (
+        <div className="absolute left-0 right-0 z-[100] mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+          {options.map((opt, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                onChange(opt);
+                setIsOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 text-xs text-slate-800 hover:bg-slate-100 font-battambang font-bold cursor-pointer block"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface AdminPanelProps {
   dbState: DBState;
   onUpdateDB: (data: Partial<DBState>) => Promise<void>;
@@ -151,6 +309,36 @@ export default function AdminPanel({
   const [phone, setPhone] = useState('');
   const [photo, setPhoto] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+
+  // Helper lists collected from previous students
+  const studentsList = dbState?.students || [];
+  const existingGrades = Array.from(new Set(studentsList.map(s => s.grade).filter(Boolean))).sort();
+  const existingVillages = Array.from(new Set(studentsList.map(s => s.village).filter(Boolean))).sort();
+  const existingCommunes = Array.from(new Set(studentsList.map(s => s.commune).filter(Boolean))).sort();
+  const existingDistricts = Array.from(new Set(studentsList.map(s => s.district).filter(Boolean))).sort();
+  const existingProvinces = Array.from(new Set(studentsList.map(s => s.province).filter(Boolean))).sort();
+  const allJobs = Array.from(new Set([
+    ...studentsList.map(s => s.fatherJob).filter(Boolean),
+    ...studentsList.map(s => s.motherJob).filter(Boolean),
+    'កសិករ'
+  ])).sort();
+
+  const getNextStudentId = () => {
+    if (studentsList.length === 0) {
+      return '001';
+    }
+    let maxId = 0;
+    let padLength = 3;
+    for (const s of studentsList) {
+      const parsed = parseInt(s.id, 10);
+      if (!isNaN(parsed) && parsed > maxId) {
+        maxId = parsed;
+        padLength = s.id.length;
+      }
+    }
+    const nextId = maxId + 1;
+    return String(nextId).padStart(padLength, '0');
+  };
 
   // Real-time camera states for rapid mobile photo acquisition (Android & iOS)
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -238,7 +426,7 @@ export default function AdminPanel({
 
   // Form Reset helper
   const resetForm = () => {
-    setId('');
+    setId(getNextStudentId());
     setName('');
     setGender('ប្រុស');
     setDob('');
@@ -248,9 +436,9 @@ export default function AdminPanel({
     setDistrict('');
     setProvince('');
     setFatherName('');
-    setFatherJob('');
+    setFatherJob('កសិករ');
     setMotherName('');
-    setMotherJob('');
+    setMotherJob('កសិករ');
     setPhone('');
     setPhoto('');
     setIsEditing(false);
@@ -268,7 +456,7 @@ export default function AdminPanel({
       id: id.trim(),
       name: name.trim(),
       gender,
-      dob: dob.trim(),
+      dob: formatDobToKhmer(dob.trim()),
       grade: grade.trim(),
       village: village.trim(),
       commune: commune.trim(),
@@ -292,16 +480,16 @@ export default function AdminPanel({
     setId(student.id);
     setName(student.name);
     setGender(student.gender);
-    setDob(student.dob);
+    setDob(formatDobToEnglish(student.dob));
     setGrade(student.grade);
     setVillage(student.village || '');
     setCommune(student.commune || '');
     setDistrict(student.district || '');
     setProvince(student.province || '');
     setFatherName(student.fatherName || '');
-    setFatherJob(student.fatherJob || '');
+    setFatherJob(student.fatherJob || 'កសិករ');
     setMotherName(student.motherName || '');
-    setMotherJob(student.motherJob || '');
+    setMotherJob(student.motherJob || 'កសិករ');
     setPhone(student.phone || '');
     setPhoto(student.photo || '');
     setIsEditing(true);
@@ -1097,11 +1285,10 @@ export default function AdminPanel({
               <input
                 type="text"
                 required
-                disabled={isEditing}
                 value={id}
                 onChange={(e) => setId(e.target.value)}
                 placeholder="ឧ. 001"
-                className="w-full px-3 py-2 border rounded-lg text-sm text-black bg-white disabled:bg-slate-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white"
               />
             </div>
             <div>
@@ -1112,7 +1299,7 @@ export default function AdminPanel({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="ឧ. ស៊ន សុភ័ក្ត្រ"
-                className="w-full px-3 py-2 border rounded-lg text-sm text-black bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white"
               />
             </div>
             <div>
@@ -1120,100 +1307,105 @@ export default function AdminPanel({
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value as any)}
-                className="w-full px-3 py-2 border rounded-lg text-sm text-black bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white"
               >
                 <option value="ប្រុស">ប្រុស</option>
                 <option value="ស្រី">ស្រី</option>
               </select>
             </div>
             <div>
-              <label className="block text-gray-500 font-bold mb-1">ថ្ងៃខែឆ្នាំកំណើត *</label>
+              <label className="block text-gray-500 font-bold mb-1">ថ្ងៃខែឆ្នាំកំណើត * <span className="text-[10px] text-blue-800">(dd/mm/yyyy)</span></label>
               <input
                 type="text"
                 required
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
-                placeholder="ឧ. ១៥-មករា-២០០៨"
-                className="w-full px-3 py-2 border rounded-lg text-sm text-black bg-white"
+                placeholder="ឧ. ១៥/០១/២០០៨"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white"
               />
             </div>
             <div>
-              <label className="block text-gray-500 font-bold mb-1">ថ្នាក់ទី *</label>
-              <input
-                type="text"
+              <label className="block text-[#af5b00] font-bold mb-1">ថ្នាក់ទី * (ជ្រើសរើស/កែបាន)</label>
+              <EditableSelect
                 required
                 value={grade}
-                onChange={(e) => setGrade(e.target.value)}
+                onChange={setGrade}
+                options={existingGrades}
                 placeholder="ឧ. ១២A"
-                className="w-full px-3 py-2 border rounded-lg text-sm text-black bg-white"
               />
             </div>
 
             <div className="md:col-span-3 border-t pt-3 space-y-1">
-              <span className="font-bold text-gray-600 block mb-1">ទីកន្លែងកំណើត</span>
+              <span className="font-bold text-gray-650 block mb-1">ទីកន្លែងកំណើត (ជ្រើសរើស/កែបាន)</span>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <input
-                  type="text"
-                  placeholder="ភូមិ"
-                  value={village}
-                  onChange={(e) => setVillage(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
-                <input
-                  type="text"
-                  placeholder="ឃុំ/សង្កាត់"
-                  value={commune}
-                  onChange={(e) => setCommune(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
-                <input
-                  type="text"
-                  placeholder="ស្រុក/ខណ្ឌ"
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
-                <input
-                  type="text"
-                  placeholder="ខេត្ត/ក្រុង"
-                  value={province}
-                  onChange={(e) => setProvince(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
+                <div>
+                  <EditableSelect
+                    value={village}
+                    onChange={setVillage}
+                    options={existingVillages}
+                    placeholder="ភូមិ"
+                  />
+                </div>
+                <div>
+                  <EditableSelect
+                    value={commune}
+                    onChange={setCommune}
+                    options={existingCommunes}
+                    placeholder="ឃុំ/សង្កាត់"
+                  />
+                </div>
+                <div>
+                  <EditableSelect
+                    value={district}
+                    onChange={setDistrict}
+                    options={existingDistricts}
+                    placeholder="ស្រុក/ខណ្ឌ"
+                  />
+                </div>
+                <div>
+                  <EditableSelect
+                    value={province}
+                    onChange={setProvince}
+                    options={existingProvinces}
+                    placeholder="ខេត្ត/ក្រុង"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="md:col-span-3 border-t pt-3 space-y-1">
-              <span className="font-bold text-gray-600 block mb-2">ព័ត៌មានអាណាព្យាបាល</span>
+              <span className="font-bold text-gray-650 block mb-2">ព័ត៌មានអាណាព្យាបាល</span>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <input
                   type="text"
                   placeholder="ឈ្មោះឪពុក"
                   value={fatherName}
                   onChange={(e) => setFatherName(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white h-[38px]"
                 />
-                <input
-                  type="text"
-                  placeholder="មុខរបរឪពុក"
-                  value={fatherJob}
-                  onChange={(e) => setFatherJob(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
+                <div>
+                  <EditableSelect
+                    value={fatherJob}
+                    onChange={setFatherJob}
+                    options={allJobs}
+                    placeholder="មុខរបរឪពុក"
+                  />
+                </div>
                 <input
                   type="text"
                   placeholder="ឈ្មោះម្តាយ"
                   value={motherName}
                   onChange={(e) => setMotherName(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white h-[38px]"
                 />
-                <input
-                  type="text"
-                  placeholder="មុខរបរម្តាយ"
-                  value={motherJob}
-                  onChange={(e) => setMotherJob(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm text-black bg-white"
-                />
+                <div>
+                  <EditableSelect
+                    value={motherJob}
+                    onChange={setMotherJob}
+                    options={allJobs}
+                    placeholder="មុខរបរម្តាយ"
+                  />
+                </div>
               </div>
             </div>
 
