@@ -45,7 +45,7 @@ export default function StudentSearchTab({
       await Promise.all(promises);
 
       const canvas = await html2canvasSafe(cardRef.current, {
-        scale: 4, // Outstanding quality, high-resolution original look!
+        scale: 1, // original scale, original width/height of 375x500
         useCORS: true,
         backgroundColor: null,
         logging: false
@@ -324,7 +324,7 @@ export default function StudentSearchTab({
                   </div>
 
                   {/* Anti-copy Watermark Overlay (Standard matching exactly) */}
-                  {wm.text && (
+                  {wm.text && !isAdmin && (
                     <div
                       id="card-watermark-overlay"
                       className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden font-moul text-center"
