@@ -6,7 +6,7 @@
 import React, { useRef, useState } from 'react';
 import { Search, IdCard, Users, User, Phone, MapPin, School, Download, Printer, Save, X } from 'lucide-react';
 import { DBState, Student } from '../types';
-import html2canvas from 'html2canvas';
+import { html2canvasSafe } from '../utils';
 
 interface StudentSearchProps {
   dbState: DBState;
@@ -44,7 +44,7 @@ export default function StudentSearchTab({
       });
       await Promise.all(promises);
 
-      const canvas = await html2canvas(cardRef.current, {
+      const canvas = await html2canvasSafe(cardRef.current, {
         scale: 4, // Outstanding quality, high-resolution original look!
         useCORS: true,
         backgroundColor: null,
