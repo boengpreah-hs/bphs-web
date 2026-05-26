@@ -140,3 +140,69 @@ export function estimateLinesAndTruncate(
   return { hasMore, truncatedText };
 }
 
+import html2canvas from 'html2canvas';
+
+let sharedCanvas: HTMLCanvasElement | null = null;
+let sharedCtx: CanvasRenderingContext2D | null = null;
+
+function convertOklchToRgbInString(str: string): string {
+  if (!str || typeof str !== 'string' || !str.includes('oklch')) {
+    return str;
+  }
+  
+  if (!sharedCanvas) {
+    sharedCanvas = document.createElement('canvas');
+    sharedCanvas.width = 1;
+    sharedCanvas.height = 1;
+    sharedCtx = sharedCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  
+  return str.replace(/oklch\([^)]+\)/g, (match) => {
+    try {
+      if (!sharedCtx) return match;
+      sharedCtx.clearRect(0, 0, 1, 1);
+      sharedCtx.fillStyle = match;
+      sharedCtx.fillRect(0, 0, 1, 1);
+      const data = sharedCtx.getImageData(0, 0, 1, 1).data;
+      const alpha = (data[3] / 255).toFixed(3);
+      return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${alpha})`;
+    } catch (e) {
+      return match;
+    }
+  });
+}
+
+export async function html2canvasSafe(element: HTMLElement, options: any = {}): Promise<HTMLCanvasElement> {
+  const originalGetComputedStyle = window.getComputedStyle;
+  
+  const customGetComputedStyle = function (elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
+    const style = originalGetComputedStyle(elt, pseudoElt);
+    return new Proxy(style, {
+      get(target, prop, receiver) {
+        const val = target[prop as any];
+        if (typeof val === 'function') {
+          if (prop === 'getPropertyValue') {
+            return function(propertyName: string) {
+              const raw = target.getPropertyValue(propertyName);
+              return convertOklchToRgbInString(raw);
+            };
+          }
+          return (val as any).bind(target);
+        }
+        if (typeof val === 'string') {
+          return convertOklchToRgbInString(val);
+        }
+        return val;
+      }
+    }) as unknown as CSSStyleDeclaration;
+  };
+  
+  window.getComputedStyle = customGetComputedStyle as unknown as typeof window.getComputedStyle;
+  
+  try {
+    return await html2canvas(element, options);
+  } finally {
+    window.getComputedStyle = originalGetComputedStyle;
+  }
+}
+
