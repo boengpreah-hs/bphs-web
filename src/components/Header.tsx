@@ -127,9 +127,9 @@ export default function Header({
               <button
                 id="btn-admin-login-header"
                 onClick={() => setShowLoginModal(true)}
-                className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer transform hover:scale-105 active:scale-95 duration-150"
+                className="hover:text-amber-400 transition cursor-pointer flex items-center gap-2 py-1.5 px-4 bg-white/10 hover:bg-white/15 rounded-full border border-white/20 font-bold shadow-md transform hover:scale-105 active:scale-95 duration-150"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-4 h-4 text-amber-400" />
                 <span>គណនី Admin</span>
               </button>
             ) : (
