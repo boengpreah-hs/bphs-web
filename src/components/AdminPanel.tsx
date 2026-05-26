@@ -852,7 +852,7 @@ export default function AdminPanel({
       tempContainer.appendChild(cardEl);
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      const canvas = await html2canvasSafe(cardEl, { scale: 3, useCORS: true });
+      const canvas = await html2canvasSafe(cardEl, { scale: 4, useCORS: true });
       const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
       if (i > 0) doc.addPage([75, 100], 'portrait');
@@ -1015,7 +1015,7 @@ export default function AdminPanel({
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-2 border-b gap-4">
           <h3 className="text-sm md:text-base font-bold text-gray-800 flex items-center font-moul">
             <Settings className="w-5 h-5 mr-1 text-amber-600 animate-spin" />
-            ផ្ទាំងគ្រប់គ្រងប្រព័ន្ធ (Admin Manager)
+            គ្រប់គ្រងទិន្នន័យសិស្ស និងការកំណត់
           </h3>
           <div className="flex flex-wrap gap-2 text-white font-battambang text-xs font-semibold">
             <button
@@ -1231,32 +1231,41 @@ export default function AdminPanel({
             <div className="md:col-span-1">
               <label className="block text-gray-500 font-bold mb-1">រូបថតសិស្ស (3x4)</label>
               <div className="flex flex-col gap-2 border p-3 rounded-lg bg-gray-50 border-gray-200">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFormPhotoChange}
-                  className="block w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                />
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400 font-battambang">அல்லது / ឬ</span>
-                  {!isCameraOpen ? (
-                    <button
-                      type="button"
-                      onClick={() => startCamera('environment')}
-                      className="px-2.5 py-1 text-[11px] bg-green-600 hover:bg-green-700 text-white font-bold rounded flex items-center gap-1 transition cursor-pointer font-battambang"
-                    >
-                      📸 បើកកាមេរ៉ា
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={stopCamera}
-                      className="px-2.5 py-1 text-[11px] bg-red-600 hover:bg-red-700 text-white font-bold rounded flex items-center gap-1 transition cursor-pointer font-battambang"
-                    >
-                      ❌ បិទកាមេរ៉ា
-                    </button>
-                  )}
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 font-battambang">
+                    <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition cursor-pointer select-none">
+                      <Plus className="w-3.5 h-3.5 text-blue-600" />
+                      <span>ជ្រើសរូបថត</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFormPhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <span className="text-[10px] text-gray-400 font-battambang px-1">ឬ</span>
+
+                    {!isCameraOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => startCamera('environment')}
+                        className="px-3 py-1.5 bg-green-50 hover:bg-green-100 border border-green-200 text-green-900 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-green-600" />
+                        <span>បើកកាមេរ៉ា</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-900 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5 text-red-600" />
+                        <span>បិទកាមេរ៉ា</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Viewfinder Overlay inside the form for high-speed student photo snap */}
@@ -2194,7 +2203,7 @@ export default function AdminPanel({
                       await Promise.all(promises);
 
                       const canvas = await html2canvasSafe(cardEl, {
-                        scale: 3,
+                        scale: 4,
                         useCORS: true,
                         backgroundColor: null,
                         logging: false
