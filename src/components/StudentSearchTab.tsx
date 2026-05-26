@@ -422,7 +422,17 @@ export default function StudentSearchTab({
                     <Phone className="w-3.5 h-3.5 text-blue-600" />
                     លេខទូរស័ព្ទអាណាព្យាបាល
                   </span>
-                  <span className="text-sm font-bold text-blue-800">{searchedStudent.phone || '-'}</span>
+                  {searchedStudent.phone ? (
+                    <a
+                      id="btn-parent-phone-link"
+                      href={`tel:${searchedStudent.phone}`}
+                      className="text-sm font-bold text-blue-600 hover:text-amber-600 hover:underline transition-all duration-150 flex items-center gap-1.5 bg-blue-50/50 hover:bg-amber-50 px-3.5 py-1.5 rounded-full border border-blue-100 hover:border-amber-200 cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5" /> {searchedStudent.phone}
+                    </a>
+                  ) : (
+                    <span className="text-sm font-bold text-gray-400">-</span>
+                  )}
                 </div>
               </div>
             </div>
