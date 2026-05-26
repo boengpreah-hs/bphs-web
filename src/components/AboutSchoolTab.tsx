@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Info, MapPin, Phone, Edit, Image as ImageIcon, Heart, Globe, Save, Users, Trash2, Plus, User } from 'lucide-react';
+import { Info, MapPin, Phone, Edit, Image as ImageIcon, Heart, Globe, Save, Users, Trash2, Plus, User, X } from 'lucide-react';
 import { DBState, AboutSchool, StaffMember } from '../types';
 import { fileToBase64, compressImage, getEmbedMapUrl } from '../utils';
 
@@ -28,13 +28,13 @@ export default function AboutSchoolTab({
   const [mapUrl, setMapUrl] = useState(dbState.about_school.map || '');
   const [image, setImage] = useState(dbState.about_school.image || '');
 
-  // Staff add form states
-  const [showAddStaffForm, setShowAddStaffForm] = useState(false);
-  const [staffName, setStaffName] = useState('');
-  const [staffRole, setStaffRole] = useState<'នាយក' | 'នាយិកា' | 'នាយករង' | 'នាយិការង' | 'លោកគ្រូ' | 'អ្នកគ្រូ'>('លោកគ្រូ');
-  const [staffSubject, setStaffSubject] = useState('');
-  const [staffPhone, setStaffPhone] = useState('');
-  const [staffPhoto, setStaffPhoto] = useState('');
+  // Staff interactive in-card editing states
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editStaffName, setEditStaffName] = useState('');
+  const [editStaffRole, setEditStaffRole] = useState('គ្រូបង្រៀន');
+  const [editStaffSubject, setEditStaffSubject] = useState('');
+  const [editStaffPhone, setEditStaffPhone] = useState('');
+  const [editStaffPhoto, setEditStaffPhoto] = useState('');
   const [isStaffUploading, setIsStaffUploading] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,23 +62,49 @@ export default function AboutSchoolTab({
     }
   };
 
+  const handlePhotoDrop = async (e: React.DragEvent<HTMLDivElement>, memberId: string) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    setIsStaffUploading(true);
+    try {
+      const base64 = await fileToBase64(file);
+      // Preserve absolute original resolution entirely
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: base64, name: 'staff_photo', ext: 'jpg' })
+      });
+      const resData = await response.json();
+      if (resData.status === 'success') {
+        setEditStaffPhoto(resData.url);
+      } else {
+        setEditStaffPhoto(base64);
+      }
+    } catch (err) {
+      alert('កំហុសក្នុងការអាប់ឡូតរូបភាព!');
+    } finally {
+      setIsStaffUploading(false);
+    }
+  };
+
   const handleStaffPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsStaffUploading(true);
     try {
       const base64 = await fileToBase64(file);
-      const compressed = await compressImage(base64, 300, 400, 0.75);
+      // Preserve original resolution entirely (No compression inside compressImage because it acts as identity Promise in utils.ts)
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: compressed, name: 'staff_photo', ext: 'jpg' })
+        body: JSON.stringify({ file: base64, name: 'staff_photo', ext: 'jpg' })
       });
       const resData = await response.json();
       if (resData.status === 'success') {
-        setStaffPhoto(resData.url);
+        setEditStaffPhoto(resData.url);
       } else {
-        setStaffPhoto(compressed);
+        setEditStaffPhoto(base64);
       }
     } catch (err) {
       alert('កំហុសក្នុងការបង្ហោះរូបបុគ្គលិក!');
@@ -101,31 +127,72 @@ export default function AboutSchoolTab({
     setShowEdit(false);
   };
 
-  const handleSaveStaff = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!staffName.trim()) return;
-
+  // Triggers creation of a new blank card and immediately sets editing state
+  const handleAddNewStaffCard = async () => {
+    const tempId = 'temp_' + Date.now();
     const newStaff: StaffMember = {
-      id: 'staff_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      name: staffName.trim(),
-      role: staffRole,
-      subject: staffSubject.trim() || undefined,
-      phone: staffPhone.trim() || undefined,
-      photo: staffPhoto || undefined,
+      id: tempId,
+      name: '',
+      role: 'គ្រូបង្រៀន',
+      subject: '',
+      phone: '',
+      photo: ''
     };
-
+    
     const currentStaffMembers = dbState.staff_members || [];
     await onUpdateDB({
-      staff_members: [...currentStaffMembers, newStaff],
+      staff_members: [...currentStaffMembers, newStaff]
     });
+    
+    // Set edit states
+    setEditingStaffId(tempId);
+    setEditStaffName('');
+    setEditStaffRole('គ្រូបង្រៀន');
+    setEditStaffSubject('');
+    setEditStaffPhone('');
+    setEditStaffPhoto('');
+  };
 
-    // Reset Form
-    setStaffName('');
-    setStaffRole('លោកគ្រូ');
-    setStaffSubject('');
-    setStaffPhone('');
-    setStaffPhoto('');
-    setShowAddStaffForm(false);
+  const handleStartInCardEdit = (member: StaffMember) => {
+    setEditingStaffId(member.id);
+    setEditStaffName(member.name);
+    setEditStaffRole(member.role || 'គ្រូបង្រៀន');
+    setEditStaffSubject(member.subject || '');
+    setEditStaffPhone(member.phone || '');
+    setEditStaffPhoto(member.photo || '');
+  };
+
+  const handleSaveInCardEdit = async (id: string) => {
+    if (!editStaffName.trim()) {
+      alert('សូមបញ្ចូលឈ្មោះបុគ្គលិក!');
+      return;
+    }
+    const currentStaffMembers = dbState.staff_members || [];
+    const updatedStaff = currentStaffMembers.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          name: editStaffName.trim(),
+          role: editStaffRole.trim() || 'គ្រូបង្រៀន',
+          subject: editStaffSubject.trim() || undefined,
+          phone: editStaffPhone.trim() || undefined,
+          photo: editStaffPhoto || undefined
+        };
+      }
+      return s;
+    });
+    await onUpdateDB({ staff_members: updatedStaff });
+    setEditingStaffId(null);
+  };
+
+  const handleCancelEditing = async (id: string, isNew: boolean) => {
+    setEditingStaffId(null);
+    if (isNew) {
+      // Discard empty temporary cards
+      const currentStaff = dbState.staff_members || [];
+      const updatedStaff = currentStaff.filter(s => s.id !== id);
+      await onUpdateDB({ staff_members: updatedStaff });
+    }
   };
 
   const handleDeleteStaff = async (id: string) => {
@@ -133,6 +200,9 @@ export default function AboutSchoolTab({
     const currentStaffMembers = dbState.staff_members || [];
     const updatedStaff = currentStaffMembers.filter((s) => s.id !== id);
     await onUpdateDB({ staff_members: updatedStaff });
+    if (editingStaffId === id) {
+      setEditingStaffId(null);
+    }
   };
 
   const activeAbout = dbState.about_school;
@@ -175,7 +245,7 @@ export default function AboutSchoolTab({
                   'វិទ្យាល័យបឹងព្រះ គឺជាគ្រឹះស្ថានសិក្សាសាធារណៈគំរូមួយដែលបានបណ្តុះបណ្តាលសិស្សានុសិស្សប្រកបដោយគុណភាព វិន័យ សីលធម៌ និងការទទួលខុសត្រូវខ្ពស់។'}
               </p>
               <div className="space-y-1 bg-slate-50 p-3 rounded border text-gray-700">
-                <span className="font-bold text-[#0f2c59]">ព័ត៌មានទំនាក់ទំនងសហគមន៍</span>
+                <span className="font-bold text-[#0f2c59]">លេខទូរស័ព្ទទំនាក់ទំនងសាលា</span>
                 <div className="flex items-center gap-1">
                   <span>លេខទូរស័ព្ទ៖</span>
                   <span className="font-bold text-blue-900">{activeAbout.phone || '0966187972'}</span>
@@ -200,196 +270,268 @@ export default function AboutSchoolTab({
                 </div>
               )}
             </div>
-
-            {/* Map Frame iframe */}
-            <div className="lg:col-span-12 space-y-2 border-t pt-4">
-              <h4 className="font-bold text-gray-800 text-xs flex items-center gap-1">
-                <MapPin className="w-4 h-4 text-amber-500 animate-bounce" /> ផែនទី និងទីតាំងសាលារៀន (Google Maps)
-              </h4>
-              <div id="map-iframe-container" className="w-full h-[280px] rounded overflow-hidden border">
-                <iframe
-                  id="about-map-iframe"
-                  src={mapEmbedSrc}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  loading="lazy"
-                  title="School Location Map"
-                />
-              </div>
-            </div>
           </div>
 
           {/* STAFF & BOARD SECTION */}
           <div className="border-t pt-6 space-y-4">
             <div className="flex justify-between items-center bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
-              <h3 className="text-xs md:text-sm font-bold font-moul text-blue-900 flex items-center gap-1.5">
+              <h2 className="text-sm md:text-base font-bold font-moul text-blue-900 flex items-center gap-1.5">
                 <Users className="w-5 h-5 text-amber-500" /> គណៈគ្រប់គ្រង លោកគ្រូ-អ្នកគ្រូ
-              </h3>
+              </h2>
               {isAdminLoggedIn && (
                 <button
-                  onClick={() => setShowAddStaffForm(!showAddStaffForm)}
+                  onClick={handleAddNewStaffCard}
                   className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white text-[11px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1 font-battambang"
                 >
-                  <Plus className="w-3.5 h-3.5 text-amber-400" /> {showAddStaffForm ? 'បិទដែនបញ្ចូល' : 'បញ្ចូលព័ត៌មានបុគ្គលិកថ្មី'}
+                  <Plus className="w-3.5 h-3.5 text-amber-400" /> បន្ថែមព័ត៌មានបុគ្គលិកថ្មី
                 </button>
               )}
             </div>
 
-            {/* Add Staff form block */}
-            {isAdminLoggedIn && showAddStaffForm && (
-              <form onSubmit={handleSaveStaff} className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 font-battambang text-xs text-black space-y-3 animate-in fade-in duration-200">
-                <p className="font-bold text-blue-900 border-b pb-1 font-moul text-[11px]">បញ្ចូលព័ត៌មានបុគ្គលិកសាលាជាកាត</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-gray-600 font-bold mb-1">គោត្តនាម-នាម *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ឧ. សេង វ៉ា"
-                      value={staffName}
-                      onChange={(e) => setStaffName(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg bg-white text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 font-bold mb-1">តួនាទី / ឋានៈ *</label>
-                    <select
-                      value={staffRole}
-                      onChange={(e) => setStaffRole(e.target.value as any)}
-                      className="w-full px-3 py-2 border rounded-lg bg-white text-xs"
-                    >
-                      <option value="នាយក">នាយក</option>
-                      <option value="នាយិកា">នាយិកា</option>
-                      <option value="នាយករង">នាយករង</option>
-                      <option value="នាយិការង">នាយិការង</option>
-                      <option value="លោកគ្រូ">លោកគ្រូ</option>
-                      <option value="អ្នកគ្រូ">អ្នកគ្រូ</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 font-bold mb-1">ឯកទេស / មុខវិជ្ជា</label>
-                    <input
-                      type="text"
-                      placeholder="ឧ. គណិតវិទ្យា (បើមាន)"
-                      value={staffSubject}
-                      onChange={(e) => setStaffSubject(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg bg-white text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-600 font-bold mb-1">លេខទូរស័ព្ទ</label>
-                    <input
-                      type="text"
-                      placeholder="ឧ. 096xxxxxxx (បើមាន)"
-                      value={staffPhone}
-                      onChange={(e) => setStaffPhone(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg bg-white text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 items-center pt-1 border-t border-dashed mt-2">
-                  <div className="flex-grow w-full">
-                    <label className="block text-gray-600 font-bold mb-1">រូបថតបុគ្គលិក</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleStaffPhotoUpload}
-                      className="block w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0"
-                    />
-                  </div>
-                  <div className="shrink-0 flex gap-2 w-full sm:w-auto justify-end pt-3 sm:pt-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddStaffForm(false)}
-                      className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg text-xs cursor-pointer"
-                    >
-                      បោះបង់
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isStaffUploading}
-                      className="px-5 py-2 bg-blue-900 hover:bg-blue-850 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Save className="w-4 h-4 text-amber-400" /> {isStaffUploading ? 'កំពុងបង្ហោះរូបភាព...' : 'រក្សាទុកព័ត៌មាន'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-
             {/* Staff Grid containing card-shaped profiles */}
             {staffList.length === 0 ? (
               <div className="py-8 text-center text-gray-400 font-battambang text-xs border border-dashed rounded-xl">
-                ไม่ទាន់មានព័ត៌មានបុគ្គលិកសិក្សាឡើយ។ {isAdminLoggedIn && 'សូមចុចប៊ូតុងខាងលើដើម្បីបញ្ជូលសមាជិកថ្មី!'}
+                មិនទាន់មានព័ត៌មានបុគ្គលិកសិក្សាឡើយ។ {isAdminLoggedIn && 'សូមចុចប៊ូតុងខាងលើដើម្បីបញ្ជូលសមាជិកថ្មី!'}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {staffList.map((member) => (
-                  <div
-                    key={member.id}
-                    className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden shadow-2xs hover:shadow-md transition duration-200 relative flex flex-col items-center p-3.5 text-center group"
-                  >
-                    {isAdminLoggedIn && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaff(member.id)}
-                        className="absolute top-2 right-2 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white p-1 rounded-full transition cursor-pointer z-20"
-                        title="លុបព័ត៌មានបុគ្គលិក"
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {staffList.map((member) => {
+                  const isEditingThis = editingStaffId === member.id;
+
+                  if (isEditingThis) {
+                    return (
+                      <div
+                        key={member.id}
+                        className="bg-white border-2 border-amber-400 shadow-md rounded-2xl overflow-hidden transition duration-200 relative flex flex-col items-center p-5 text-center text-black"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {/* Member image frame */}
-                    <div className="w-20 h-24 mb-3 bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center border-2 border-white shadow-xs shrink-0 select-none">
-                      {member.photo ? (
-                        <img
-                          src={member.photo}
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <User className="w-10 h-10 text-slate-400 stroke-1" />
-                      )}
-                    </div>
-
-                    <div className="space-y-1 w-full text-xs font-battambang">
-                      <p className="font-bold text-gray-800 text-[11px] leading-tight truncate-2-lines min-h-[30px] flex items-center justify-center">
-                        {member.name}
-                      </p>
-                      
-                      <div className="pt-1">
-                        <span
-                          className={`inline-block text-[9px] px-2.5 py-0.5 rounded-full font-bold select-none ${
-                            ['នាយក', 'នាយិកា'].includes(member.role)
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : ['នាយករង', 'នាយិការង'].includes(member.role)
-                              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                              : 'bg-slate-200 text-slate-700'
-                          }`}
+                        {/* Drag and Drop portrait frame */}
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); }}
+                          onDrop={(e) => handlePhotoDrop(e, member.id)}
+                          className="w-40 h-48 mb-4 bg-amber-50 rounded-xl overflow-hidden flex flex-col items-center justify-center border-2 border-dashed border-amber-300 shadow-xs shrink-0 select-none relative group/drop"
                         >
-                          {member.role}
-                        </span>
+                          {editStaffPhoto ? (
+                            <>
+                              <img
+                                src={editStaffPhoto}
+                                alt="Staff portrait"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditStaffPhoto('')}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover/drop:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity cursor-pointer flex-col gap-1"
+                              >
+                                <Trash2 className="w-5 h-5 text-red-400" />
+                                <span>លុបរូបថត</span>
+                              </button>
+                            </>
+                          ) : (
+                            <label htmlFor={`edit-file-${member.id}`} className="cursor-pointer w-full h-full flex flex-col items-center justify-center p-2 text-center text-slate-400 hover:text-amber-600 transition">
+                              <User className="w-12 h-12 stroke-1 mb-1 text-slate-350" />
+                              <span className="text-[10px] font-bold text-slate-500">ទាញរូបភាពដាក់ទីនេះ</span>
+                              <span className="text-[9px] text-amber-600 mt-1 font-semibold underline">ឬ ចុចជ្រើសរើស</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                id={`edit-file-${member.id}`}
+                                className="hidden"
+                                onChange={handleStaffPhotoUpload}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        {/* Inline Card Editor Form */}
+                        <div className="w-full space-y-2.5 text-xs text-left font-battambang">
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold block mb-0.5">ឈ្មោះបុគ្គលិក *</label>
+                            <input
+                              type="text"
+                              required
+                              value={editStaffName}
+                              onChange={(e) => setEditStaffName(e.target.value)}
+                              placeholder="ឈ្មោះបុគ្គលិក"
+                              className="w-full px-2.5 py-1.5 border rounded-lg bg-slate-50 text-black text-xs font-bold font-moul focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold block mb-0.5">តួនាទី / ឋានៈ *</label>
+                            <div className="flex gap-1">
+                              <input
+                                type="text"
+                                required
+                                value={editStaffRole}
+                                onChange={(e) => setEditStaffRole(e.target.value)}
+                                placeholder="តួនាទី (ឧ. គ្រូបង្រៀន)"
+                                className="w-full px-2.5 py-1.5 border rounded-lg bg-slate-50 text-black text-xs font-bold focus:ring-1 focus:ring-amber-500"
+                              />
+                              <select
+                                value={['គ្រូបង្រៀន', 'នាយក', 'នាយិកា', 'នាយករង', 'នាយិការង'].includes(editStaffRole) ? editStaffRole : ''}
+                                onChange={(e) => {
+                                  if (e.target.value) setEditStaffRole(e.target.value);
+                                }}
+                                className="px-1 py-1.5 border rounded-lg bg-slate-50 text-black text-xs shrink-0 cursor-pointer"
+                              >
+                                <option value="">រហ័ស...</option>
+                                <option value="គ្រូបង្រៀន">គ្រូបង្រៀន</option>
+                                <option value="នាយក">នាយក</option>
+                                <option value="នាយិកា">នាយិកា</option>
+                                <option value="នាយករង">នាយករង</option>
+                                <option value="នាយិការង">នាយិការង</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold block mb-0.5">ឯកទេស / មុខវិជ្ជា</label>
+                            <input
+                              type="text"
+                              value={editStaffSubject}
+                              onChange={(e) => setEditStaffSubject(e.target.value)}
+                              placeholder="ឧ. គណិតវិទ្យា (បើមាន)"
+                              className="w-full px-2.5 py-1.5 border rounded-lg bg-slate-50 text-black text-xs focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold block mb-0.5">លេខទូរស័ព្ទ</label>
+                            <input
+                              type="text"
+                              value={editStaffPhone}
+                              onChange={(e) => setEditStaffPhone(e.target.value)}
+                              placeholder="ឧ. 096xxxxxxx (បើមាន)"
+                              className="w-full px-2.5 py-1.5 border rounded-lg bg-slate-50 text-black text-xs font-bold focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
+
+                          <div className="flex justify-end gap-1.5 pt-3 border-t border-slate-100 !mt-3">
+                            <button
+                              type="button"
+                              onClick={() => handleCancelEditing(member.id, member.id.startsWith('temp_'))}
+                              className="px-3 py-1.5 bg-gray-150 hover:bg-gray-200 text-gray-800 rounded-lg text-[10px] font-bold transition flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" /> បោះបង់
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveInCardEdit(member.id)}
+                              className="px-3.5 py-1.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                            >
+                              <Save className="w-3.5 h-3.5 text-amber-400" /> រក្សាទុក
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Non-edit display card layout
+                  return (
+                    <div
+                      key={member.id}
+                      className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md rounded-2xl overflow-hidden transition duration-200 relative flex flex-col items-center p-5 text-center group"
+                    >
+                      {isAdminLoggedIn && (
+                        <div className="absolute top-3 right-3 flex gap-1.5 z-20">
+                          <button
+                            type="button"
+                            onClick={() => handleStartInCardEdit(member)}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-900 p-2 rounded-full transition cursor-pointer shadow-2xs border border-blue-250/20"
+                            title="កែសម្រួលព័ត៌មានបុគ្គលិក"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStaff(member.id)}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-full transition cursor-pointer shadow-2xs border border-red-250/20"
+                            title="លុបព័ត៌មានបុគ្គលិក"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Portrait frame */}
+                      <div className="w-40 h-48 mb-4 bg-slate-150 rounded-xl overflow-hidden flex items-center justify-center border-4 border-white shadow-xs shrink-0 select-none relative">
+                        {member.photo ? (
+                          <img
+                            src={member.photo}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <User className="w-16 h-16 text-slate-400 stroke-1" />
+                        )}
                       </div>
 
-                      {member.subject && (
-                        <p className="text-[10px] text-gray-500 font-semibold truncate pt-0.5">
-                          ឯកទេស៖ <span className="text-gray-750 font-bold">{member.subject}</span>
+                      <div className="space-y-1 w-full text-xs font-battambang">
+                        {/* Name styled in Moul with bigger font */}
+                        <p className="font-moul text-blue-950 text-sm md:text-base font-bold leading-normal truncate-2-lines px-1 min-h-[35px] flex items-center justify-center">
+                          {member.name || 'គ្មានឈ្មោះ'}
                         </p>
-                      )}
+                        
+                        {/* Role displayed literally "តួនាទី ៖ {member.role}" */}
+                        <p className="text-[11px] sm:text-xs text-gray-600 font-semibold pt-1">
+                          តួនាទី ៖ <span className="text-gray-900 font-bold">{member.role || 'គ្រូបង្រៀន'}</span>
+                        </p>
 
-                      {member.phone && (
-                        <p className="text-[9px] text-blue-900 font-bold flex items-center justify-center gap-0.5 pt-1.5 border-t border-slate-200/50 mt-1">
-                          <Phone className="w-2.5 h-2.5 text-blue-600" /> {member.phone}
-                        </p>
-                      )}
+                        {member.subject && (
+                          <p className="text-[10px] sm:text-xs text-gray-500 font-semibold pt-0.5">
+                            ឯកទេស ៖ <span className="text-gray-750 font-bold">{member.subject}</span>
+                          </p>
+                        )}
+
+                        {/* Click to call support with <a href="tel:..."> */}
+                        {member.phone && (
+                          <a
+                            href={`tel:${member.phone}`}
+                            className="text-blue-950 font-bold hover:underline hover:text-blue-800 flex items-center justify-center gap-1.5 pt-2 border-t border-slate-200/50 mt-2.5 text-[11px] select-all w-full decoration-amber-500"
+                            title="ចុចដើម្បីហៅទូរស័ព្ទ"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" /> {member.phone}
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+
+                {/* Inline Empty Add Card at the end */}
+                {isAdminLoggedIn && !editingStaffId && (
+                  <button
+                    type="button"
+                    onClick={handleAddNewStaffCard}
+                    className="bg-white border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-2xl p-6 text-center flex flex-col items-center justify-center min-h-[350px] transition cursor-pointer group/add shadow-3xs hover:shadow-2xs"
+                  >
+                    <Plus className="w-12 h-12 text-slate-400 group-hover/add:text-amber-500 transition mb-3" />
+                    <p className="font-moul text-xs sm:text-sm text-slate-600 group-hover/add:text-slate-900 transition font-bold">បន្ថែមបុគ្គលិកសាលា</p>
+                    <p className="font-battambang text-[10px] text-slate-400 mt-1">ចុចដើម្បីបន្ថែមរូបភាព និងព័ត៌មានជាកាតថ្មី</p>
+                  </button>
+                )}
               </div>
             )}
+          </div>
+
+          {/* Map Frame iframe at the absolute bottom of about tab view content */}
+          <div className="lg:col-span-12 space-y-2 border-t pt-6 mt-2">
+            <h4 className="font-moul text-blue-900 text-xs sm:text-sm font-bold flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-amber-500 animate-bounce" /> ផែនទី និងទីតាំងសាលារៀន (Google Maps)
+            </h4>
+            <div id="map-iframe-container" className="w-full h-[320px] rounded-xl overflow-hidden border">
+              <iframe
+                id="about-map-iframe"
+                src={mapEmbedSrc}
+                className="w-full h-full border-0"
+                allowFullScreen
+                loading="lazy"
+                title="School Location Map"
+              />
+            </div>
           </div>
         </div>
       ) : (
