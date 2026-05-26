@@ -522,6 +522,7 @@ export default function App() {
             dbState={dbState}
             isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onUpdateDB={pushState}
+            onZoomImage={handleZoomImage}
           />
         );
       case 'admin':
@@ -570,7 +571,7 @@ export default function App() {
             { id: 'exam-results', label: 'លទ្ធផលប្រឡងសញ្ញាបត្រ', icon: <ClipboardCopy className="w-4 h-4" /> },
             { id: 'about-school', label: 'អំពីសាលា', icon: <School className="w-4 h-4" /> },
             ...(isAdminLoggedIn
-              ? [{ id: 'admin', label: 'ផ្ទាំងគ្រប់គ្រង (Admin)', icon: <Settings className="w-4 h-4" /> }]
+              ? [{ id: 'admin', label: 'ទិន្នន័យសិស្ស និងប្លង់កាត', icon: <Settings className="w-4 h-4" /> }]
               : []),
           ].map((tab) => (
             <button
@@ -609,11 +610,11 @@ export default function App() {
         >
           {/* រូបភាព — ពេញអេក្រង់ទាំងស្រុង */}
           <div
-            className="absolute inset-0 flex items-center justify-center overflow-auto"
+            className="absolute inset-0 flex overflow-auto p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              className={`transition-all duration-200 ${
+              className={`transition-all duration-200 m-auto ${
                 isOriginalSize
                   ? 'max-w-none max-h-none h-auto w-auto object-none cursor-zoom-out'
                   : 'max-w-full max-h-full w-auto h-auto object-contain cursor-zoom-in'
