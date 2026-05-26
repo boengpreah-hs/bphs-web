@@ -91,7 +91,7 @@ export default function Header({
                 id="app-school-name"
                 className="font-moul text-lg md:text-2xl text-amber-300 tracking-wider drop-shadow-lg leading-snug"
               >
-                {dbState.about_school.title || 'វិទ្យាល័យបារាយណ៍'}
+                {dbState.about_school.title || 'វិទ្យាល័យបឹងព្រះ'}
               </h1>
               <p className="text-xs md:text-sm font-battambang text-gray-200 drop-shadow mt-1">
                 ប្រព័ន្ធព័ត៌មានសាលារៀន និងតាមដានការសិក្សារបស់សិស្ស
@@ -116,7 +116,7 @@ export default function Header({
                 className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer transform hover:scale-105 active:scale-95 duration-150"
               >
                 <LogIn className="w-4 h-4" />
-                <span>ចូលគ្រូគ្រប់គ្រង (Admin)</span>
+                <span>ចូលគណនី (Admin)</span>
               </button>
             ) : (
               <div id="admin-session-indicator" className="text-amber-400 flex items-center gap-2 font-battambang">
