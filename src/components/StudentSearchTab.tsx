@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Search, IdCard, Users, User, Phone, MapPin, School, Download, Printer, Save, X } from 'lucide-react';
 import { DBState, Student } from '../types';
 import html2canvas from 'html2canvas';
@@ -15,6 +15,7 @@ interface StudentSearchProps {
   setPublicSearchInput: (val: string) => void;
   searchedStudent: Student | null;
   onSearch: (q: string) => void;
+  isAdmin?: boolean;
 }
 
 export default function StudentSearchTab({
@@ -24,8 +25,44 @@ export default function StudentSearchTab({
   setPublicSearchInput,
   searchedStudent,
   onSearch,
+  isAdmin,
 }: StudentSearchProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadCard = async () => {
+    if (!searchedStudent || !cardRef.current) return;
+    setIsDownloading(true);
+    try {
+      const images = cardRef.current.getElementsByTagName('img');
+      const promises = Array.from(images).map((img: HTMLImageElement) => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      });
+      await Promise.all(promises);
+
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 4, // Outstanding quality, high-resolution original look!
+        useCORS: true,
+        backgroundColor: null,
+        logging: false
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = `កាតសិស្ស_${searchedStudent.id}_${searchedStudent.name}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Download card error:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleSearchTrigger = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +167,7 @@ export default function StudentSearchTab({
               }
             }}
             onKeyPress={handleSearchKeyPress}
-            placeholder="ស្វែងរកតាមអត្តលេខគ្រួសារ ឬឈ្មោះសិស្ស..."
+            placeholder="វាយបញ្ចូល អត្តលេខ ឬឈ្មោះសិស្ស..."
             className="w-full pl-10 pr-24 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-800 text-xs text-black bg-white shadow-xs font-battambang"
           />
           <button
@@ -306,6 +343,21 @@ export default function StudentSearchTab({
                 </div>
               </div>
 
+              {/* Download button below card (Admin only) */}
+              {isAdmin && (
+                <div className="mt-4 flex gap-3 w-full justify-center">
+                  <button
+                    onClick={handleDownloadCard}
+                    disabled={isDownloading}
+                    className={`px-4 py-2 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition font-battambang cursor-pointer shadow-md ${
+                      isDownloading ? 'bg-amber-400 cursor-not-allowed opacity-75 animate-pulse' : 'bg-amber-600 hover:bg-amber-500 active:scale-95'
+                    }`}
+                    title="ទាញយកជាជារូបភាពទំហំដើម"
+                  >
+                    <Download className="w-4 h-4" /> {isDownloading ? 'កំពុងទាញយក...' : 'ទាញយកកាត'}
+                  </button>
+                </div>
+              )}
 
             </div>
 
