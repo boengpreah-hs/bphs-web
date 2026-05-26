@@ -2428,7 +2428,6 @@ export default function AdminPanel({
                       await Promise.all(promises);
 
                       const canvas = await html2canvasSafe(cardEl, {
-                        scale: 1, // original scale, original width/height of 375x500
                         useCORS: true,
                         backgroundColor: null,
                         logging: false
