@@ -45,24 +45,32 @@ export default function StudyScheduleTab({
   // Input states
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState('កាលវិភាគប្រចាំសប្ដាហ៍ ថ្នាក់ទី12');
   const [grade, setGrade] = useState('12');
   const [year, setYear] = useState('2025-2026');
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState('សូមឪពុកម្ដាយ ឬអាណាព្យាបាលសិស្សយកចិត្តទុកលើការសិក្សារបស់សិស្សតាមកាលវិភាគនេះ។ សូមអរគុណ!');
   const [fileUrl, setFileUrl] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(false);
+  const [isContentManuallyEdited, setIsContentManuallyEdited] = useState(false);
+
+  const getAutoTitle = (g: string) => `កាលវិភាគប្រចាំសប្ដាហ៍ ថ្នាក់ទី${g}`;
+  const getAutoContent = () =>
+    'សូមឪពុកម្ដាយ ឬអាណាព្យាបាលសិស្សយកចិត្តទុកលើការសិក្សារបស់សិស្សតាមកាលវិភាគនេះ។ សូមអរគុណ!';
 
   const resetForm = () => {
     setEditingId(null);
-    setTitle('');
     setGrade('12');
+    setTitle(getAutoTitle('12'));
+    setContent(getAutoContent());
     setYear('2025-2026');
-    setContent('');
     setFileUrl('');
     setCoverUrl('');
     setDriveUrl('');
+    setIsTitleManuallyEdited(false);
+    setIsContentManuallyEdited(false);
     setShowForm(false);
   };
 
@@ -75,7 +83,20 @@ export default function StudyScheduleTab({
     setFileUrl(post.file || '');
     setCoverUrl(post.cover || '');
     setDriveUrl(post.driveLink || '');
+    setIsTitleManuallyEdited(true);
+    setIsContentManuallyEdited(true);
     setShowForm(true);
+  };
+
+  // When grade changes, auto-update title/content only if not manually edited
+  const handleGradeChange = (newGrade: string) => {
+    setGrade(newGrade);
+    if (!isTitleManuallyEdited) {
+      setTitle(getAutoTitle(newGrade));
+    }
+    if (!isContentManuallyEdited) {
+      setContent(getAutoContent());
+    }
   };
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,21 +250,38 @@ export default function StudyScheduleTab({
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="col-span-1 md:col-span-2">
-                <label className="block text-gray-500 font-bold mb-1">ចំណងជើងព័ត៌មាន *</label>
+                <label className="block text-gray-500 font-bold mb-1">
+                  ចំណងជើងព័ត៌មាន *
+                  {!isTitleManuallyEdited && (
+                    <span className="ml-1 text-amber-500 font-normal text-[10px]">(ស្វ័យប្រវត្តិ)</span>
+                  )}
+                </label>
                 <input
                   type="text"
                   required
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="ឧ. កាលវិភាគរៀនប្រចាំសប្តាហ៍ ថ្នាក់ទី១២A"
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setIsTitleManuallyEdited(true);
+                  }}
+                  placeholder="ឧ. កាលវិភាគប្រចាំសប្ដាហ៍ ថ្នាក់ទី១២A"
                   className="w-full px-3 py-2 border rounded-lg bg-white text-black text-xs font-semibold"
                 />
+                {isTitleManuallyEdited && (
+                  <button
+                    type="button"
+                    onClick={() => { setTitle(getAutoTitle(grade)); setIsTitleManuallyEdited(false); }}
+                    className="text-[10px] text-amber-600 hover:underline mt-0.5 cursor-pointer"
+                  >
+                    ↺ សង្គ្រោះចំណងជើងស្វ័យប្រវត្តិ
+                  </button>
+                )}
               </div>
               <div>
                 <label className="block text-gray-500 font-bold mb-1">កម្រិតថ្នាក់</label>
                 <select
                   value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
+                  onChange={(e) => handleGradeChange(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg bg-white text-black font-bold"
                 >
                   <option value="7">ថ្នាក់ទី៧</option>
@@ -268,14 +306,31 @@ export default function StudyScheduleTab({
             </div>
 
             <div>
-              <label className="block text-gray-500 font-bold mb-1">ខ្លឹមសារពិពណ៌នាលម្អិត</label>
+              <label className="block text-gray-500 font-bold mb-1">
+                ខ្លឹមសារពិពណ៌នាលម្អិត
+                {!isContentManuallyEdited && (
+                  <span className="ml-1 text-amber-500 font-normal text-[10px]">(ស្វ័យប្រវត្តិ)</span>
+                )}
+              </label>
               <textarea
                 rows={3}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  setIsContentManuallyEdited(true);
+                }}
                 placeholder="រៀបរាប់ព័ត៌មានបន្ថែម..."
                 className="w-full px-3 py-2 border rounded-lg bg-white text-black text-xs"
               />
+              {isContentManuallyEdited && (
+                <button
+                  type="button"
+                  onClick={() => { setContent(getAutoContent()); setIsContentManuallyEdited(false); }}
+                  className="text-[10px] text-amber-600 hover:underline mt-0.5 cursor-pointer"
+                >
+                  ↺ សង្គ្រោះខ្លឹមសារស្វ័យប្រវត្តិ
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 border-t border-dashed pt-3">
