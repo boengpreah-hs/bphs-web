@@ -107,7 +107,7 @@ export interface AdminCredentials {
 export interface StaffMember {
   id: string;
   name: string;
-  role: 'នាយក' | 'នាយិកា' | 'នាយករង' | 'នាយិការង' | 'លោកគ្រូ' | 'អ្នកគ្រូ';
+  role: string;
   subject?: string; // Specialty subject, e.g. ភាសាខ្មែរ
   phone?: string;
   photo?: string;
