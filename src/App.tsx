@@ -440,8 +440,8 @@ export default function App() {
         <div className="relative w-12 h-12 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full border-4 border-t-[#0f2c59] border-r-transparent border-b-[#0f2c59] border-l-transparent animate-spin"></div>
         </div>
-        <p className="text-xs font-bold font-moul animate-pulse text-[#0f2c59]">វិទ្យាល័យបារាយណ៍</p>
-        <p className="text-[10px]">កំពុងទិន្នន័យមូលដ្ឋាន... សូមរង់ចាំមួយភ្លែត</p>
+        <p className="text-xs font-bold font-moul animate-pulse text-[#0f2c59]">វិទ្យាល័យបឹងព្រះ</p>
+        <p className="text-[10px]">កំពុងទាញយកទិន្នន័យ... សូមមេត្តារង់ចាំ</p>
       </div>
     );
   }
@@ -589,7 +589,7 @@ export default function App() {
 
       {/* FOOTER */}
       <footer className="bg-slate-900 text-white/50 text-[10px] text-center py-4 border-t border-slate-800 font-battambang">
-        <p>© ឆ្នាំ ២០២៦ - គេហទំព័រផ្លូវការ {dbState?.about_school?.title || 'វិទ្យាល័យបារាយណ៍'}</p>
+        <p>© ឆ្នាំ ២០២៦ - គេហទំព័រផ្លូវការ {dbState?.about_school?.title || 'វិទ្យាល័យបឹងព្រះ'}</p>
       </footer>
 
       {/* LIGHTBOX PHOTO ZOOM Lightbox */}
