@@ -421,14 +421,25 @@ export default function HomeTab({
 
                 {/* Grid of current slides with individual Delete/Replace actions */}
                 {slides.length > 0 && (
-                  <div className="mt-3 grid grid-cols-5 gap-1.5 pt-3 border-t border-gray-150">
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-3 border-t border-gray-150">
                     {slides.map((slide, idx) => (
-                      <div key={idx} className="relative group/thumb border border-gray-200 rounded overflow-hidden aspect-[16/9] bg-slate-900 shadow-sm">
+                      <div key={idx} className="relative border border-gray-200 rounded overflow-hidden aspect-[16/9] bg-slate-900 shadow-sm flex flex-col justify-end">
                         <img src={slide} className="w-full h-full object-cover" alt="" />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center gap-1 transition-opacity duration-150">
-                          {/* Replace Icon */}
-                          <label className="p-1 bg-amber-500 rounded text-slate-950 hover:bg-amber-400 cursor-pointer" title="ប្ដូររូប">
-                            <Edit3 className="w-3 h-3" />
+                        
+                        {/* Slide Number Badge */}
+                        <div className="absolute top-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono font-extrabold z-10">
+                          #{idx + 1}
+                        </div>
+
+                        {/* Always visible solid actions bar for pristine Mobile and Desktop usability */}
+                        <div className="absolute inset-x-0 bottom-0 bg-black/75 p-1 flex items-center justify-center gap-1.5 z-10">
+                          {/* Replace Action */}
+                          <label 
+                            id={`btn-replace-slide-${idx}`}
+                            className="p-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded cursor-pointer flex items-center justify-center transition-all duration-150 shadow-xs" 
+                            title="ប្ដូររូបភាព"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
                             <input
                               type="file"
                               accept="image/*"
@@ -436,26 +447,25 @@ export default function HomeTab({
                               className="hidden"
                             />
                           </label>
-                          {/* Delete Icon */}
+
+                          {/* Delete Action */}
                           <button
+                            id={`btn-delete-slide-${idx}`}
                             type="button"
                             onClick={() => handleDeleteSlide(idx)}
-                            className={`p-1 rounded text-white cursor-pointer select-none transition-all duration-150 flex items-center justify-center ${
+                            className={`p-1.5 rounded text-white cursor-pointer select-none transition-all duration-150 flex items-center justify-center shadow-xs ${
                               slideToDeleteIndex === idx 
-                                ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2 animate-bounce' 
-                                : 'bg-red-600 hover:bg-red-500'
+                                ? 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 px-2 animate-pulse font-extrabold' 
+                                : 'bg-red-650 hover:bg-red-500'
                             }`}
                             title={slideToDeleteIndex === idx ? "ចុចម្ដងទៀតដើម្បីលុប" : "លុប"}
                           >
                             {slideToDeleteIndex === idx ? (
-                              <span className="text-[8px] font-extrabold leading-none">លុប?</span>
+                              <span className="text-[9px] leading-none">ចង់លុប?</span>
                             ) : (
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             )}
                           </button>
-                        </div>
-                        <div className="absolute bottom-0 right-0 bg-black/75 text-white text-[8px] px-0.5 font-mono">
-                          #{idx + 1}
                         </div>
                       </div>
                     ))}
