@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL REUSABLE PRIMITIVES & HELPERS (Phase 3) ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedEmail() && request.auth.token.email == "sengva29@gmail.com";
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY VALIDATORS (Phase 4 Validation Blueprints) ---
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['id', 'name', 'gender', 'grade']) 
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 64
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && (data.gender == 'ប្រុស' || data.gender == 'ស្រី')
+        && data.grade is string && data.grade.size() > 0 && data.grade.size() <= 50
+        && (!data.keys().contains('phone') || (data.phone is string && data.phone.size() <= 32))
+        && (!data.keys().contains('dob') || (data.dob is string && data.dob.size() <= 100))
+        && (!data.keys().contains('village') || (data.village is string && data.village.size() <= 100))
+        && (!data.keys().contains('commune') || (data.commune is string && data.commune.size() <= 100))
+        && (!data.keys().contains('district') || (data.district is string && data.district.size() <= 100))
+        && (!data.keys().contains('province') || (data.province is string && data.province.size() <= 100))
+        && (!data.keys().contains('fatherName') || (data.fatherName is string && data.fatherName.size() <= 200))
+        && (!data.keys().contains('motherName') || (data.motherName is string && data.motherName.size() <= 200))
+        && (!data.keys().contains('fatherJob') || (data.fatherJob is string && data.fatherJob.size() <= 200))
+        && (!data.keys().contains('motherJob') || (data.motherJob is string && data.motherJob.size() <= 200))
+        && (!data.keys().contains('photo') || (data.photo is string && data.photo.size() <= 500000));
+    }
+
+    function isValidActivityPost(data) {
+      return data.keys().hasAll(['id', 'title', 'date'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 300
+        && data.date is string && data.date.size() > 0 && data.date.size() <= 100
+        && (!data.keys().contains('desc') || (data.desc is string && data.desc.size() <= 4000))
+        && (!data.keys().contains('likes') || (data.likes is int && data.likes >= 0))
+        && (!data.keys().contains('driveLink') || (data.driveLink is string && data.driveLink.size() <= 1000))
+        && (!data.keys().contains('images') || (data.images is list && data.images.size() <= 20));
+    }
+
+    function isValidAcademicPost(data) {
+      return data.keys().hasAll(['id', 'title', 'date'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 300
+        && data.date is string && data.date.size() > 0 && data.date.size() <= 100
+        && (!data.keys().contains('content') || (data.content is string && data.content.size() <= 8000))
+        && (!data.keys().contains('grade') || (data.grade is string && data.grade.size() <= 30))
+        && (!data.keys().contains('year') || (data.year is string && data.year.size() <= 30))
+        && (!data.keys().contains('file') || (data.file is string && data.file.size() <= 800000))
+        && (!data.keys().contains('cover') || (data.cover is string && data.cover.size() <= 500000))
+        && (!data.keys().contains('driveLink') || (data.driveLink is string && data.driveLink.size() <= 1000));
+    }
+
+    function isValidExamPost(data) {
+      return data.keys().hasAll(['id', 'title', 'cat', 'year', 'date'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 300
+        && (data.cat == 'diploma' || data.cat == 'bacii')
+        && data.year is string && data.year.size() > 0 && data.year.size() <= 10
+        && data.date is string && data.date.size() > 0 && data.date.size() <= 100
+        && (!data.keys().contains('content') || (data.content is string && data.content.size() <= 8000))
+        && (!data.keys().contains('file') || (data.file is string && data.file.size() <= 800000))
+        && (!data.keys().contains('cover') || (data.cover is string && data.cover.size() <= 500000))
+        && (!data.keys().contains('driveLink') || (data.driveLink is string && data.driveLink.size() <= 1000));
+    }
+
+    // --- CORES & PATH RULES (Phase 1, 2) ---
+
+    // Student Database Rules
+    match /students/{studentId} {
+      allow get: if true; // Public access to look up individual students via the Search searchbar
+      allow list: if true; // Public list matching queries
+      allow create: if isAdmin() && isValidId(studentId) && isValidStudent(incoming());
+      allow update: if isAdmin() && isValidId(studentId) && isValidStudent(incoming());
+      allow delete: if isAdmin() && isValidId(studentId);
+    }
+
+    // Activities Collection Rules
+    match /activities/{activityId} {
+      allow read: if true; // Publicly readable feed
+      allow create: if isAdmin() && isValidId(activityId) && isValidActivityPost(incoming());
+      // Updates - can be done by Admin OR anyone updating 'likes' if it's limited
+      allow update: if (isAdmin() && isValidId(activityId) && isValidActivityPost(incoming()))
+                    || (isValidId(activityId) && incoming().diff(existing()).affectedKeys().hasOnly(['likes']) && incoming().likes is int && (incoming().likes == existing().likes + 1 || incoming().likes == existing().likes - 1));
+      allow delete: if isAdmin() && isValidId(activityId);
+    }
+
+    // Academic Bulletin
+    match /academic/{postId} {
+      allow read: if true; // Publicly readable feed
+      allow create, update: if isAdmin() && isValidId(postId) && isValidAcademicPost(incoming());
+      allow delete: if isAdmin() && isValidId(postId);
+    }
+
+    // Exam Results Bulletin
+    match /exams/{postId} {
+      allow read: if true; // Publicly readable feed
+      allow create, update: if isAdmin() && isValidId(postId) && isValidExamPost(incoming());
+      allow delete: if isAdmin() && isValidId(postId);
+    }
+
+    // System Layout and configurations (Singletons)
+    match /settings/{docName} {
+      allow read: if true; // Public configuration variables are readable by all clients
+      allow create, update: if isAdmin() && isValidId(docName);
+      allow delete: if isAdmin() && isValidId(docName);
+    }
+  }
+}

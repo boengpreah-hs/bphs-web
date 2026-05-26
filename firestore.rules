@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- SYSTEM & WEB CLIENT RULES ---
+    // All scoped collections are allowed read/write to support server-side and multi-device collaborative updates
+
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+
+    match /activities/{activityId} {
+      allow read, write: if true;
+    }
+
+    match /academic/{postId} {
+      allow read, write: if true;
+    }
+
+    match /exams/{postId} {
+      allow read, write: if true;
+    }
+
+    match /settings/{docName} {
+      allow read, write: if true;
+    }
+  }
+}

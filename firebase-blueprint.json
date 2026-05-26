@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student information record used for ID printing and search",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique Student ID card number" },
+        "name": { "type": "string", "description": "Student name in Khmer" },
+        "gender": { "type": "string", "enum": ["ប្រុស", "ស្រី"], "description": "Gender of the student" },
+        "dob": { "type": "string", "description": "Date of birth" },
+        "grade": { "type": "string", "description": "Grade assignment" },
+        "village": { "type": "string", "description": "Village of residence" },
+        "commune": { "type": "string", "description": "Commune of residence" },
+        "district": { "type": "string", "description": "District of residence" },
+        "province": { "type": "string", "description": "Province of residence" },
+        "fatherName": { "type": "string", "description": "Father's name" },
+        "fatherJob": { "type": "string", "description": "Father's occupation" },
+        "motherName": { "type": "string", "description": "Mother's name" },
+        "motherJob": { "type": "string", "description": "Mother's occupation" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "photo": { "type": "string", "description": "Base64 encoded or direct URL student photo" }
+      },
+      "required": ["id", "name", "gender", "grade"]
+    },
+    "ActivityPost": {
+      "title": "ActivityPost",
+      "description": "School activity or event post with images",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique post ID" },
+        "title": { "type": "string", "description": "Post title" },
+        "desc": { "type": "string", "description": "Post content details" },
+        "images": { "type": "array", "description": "List of base64 compressed or URL images" },
+        "driveLink": { "type": "string", "description": "Linked Google Drive sharing link" },
+        "likes": { "type": "number", "description": "Number of reactions" },
+        "date": { "type": "string", "description": "Creation timestamp formatted string" }
+      },
+      "required": ["id", "title", "date"]
+    },
+    "AcademicPost": {
+      "title": "AcademicPost",
+      "description": "Academic tracking bulletin/score announcements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique bulletin ID" },
+        "title": { "type": "string", "description": "Bulletin title" },
+        "grade": { "type": "string", "description": "Academic grade target" },
+        "year": { "type": "string", "description": "Target academic year" },
+        "content": { "type": "string", "description": "Announcement summary details" },
+        "file": { "type": "string", "description": "Base64 PDF representation or link" },
+        "cover": { "type": "string", "description": "Base64 cover image preview" },
+        "driveLink": { "type": "string", "description": "Linked Google Drive full file link" },
+        "date": { "type": "string", "description": "Creation timestamp string" }
+      },
+      "required": ["id", "title", "date"]
+    },
+    "ExamPost": {
+      "title": "ExamPost",
+      "description": "National high school or junior high exam post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique exam post ID" },
+        "title": { "type": "string", "description": "Post title" },
+        "cat": { "type": "string", "enum": ["diploma", "bacii"], "description": "Exam category" },
+        "year": { "type": "string", "description": "Exam year" },
+        "content": { "type": "string", "description": "Exam detail summary" },
+        "file": { "type": "string", "description": "Base64 PDF score list or link" },
+        "cover": { "type": "string", "description": "Base64 cover image preview" },
+        "driveLink": { "type": "string", "description": "Linked Google Drive results folder" },
+        "date": { "type": "string", "description": "Post creation date" }
+      },
+      "required": ["id", "title", "cat", "year", "date"]
+    },
+    "Position": {
+      "title": "Position",
+      "description": "Coordinates and font size configuration for a text field on the ID card",
+      "type": "object",
+      "properties": {
+        "left": { "type": "string" },
+        "top": { "type": "string" },
+        "fontSize": { "type": "string" },
+        "width": { "type": "string" },
+        "height": { "type": "string" }
+      }
+    },
+    "CardLayout": {
+      "title": "CardLayout",
+      "description": "Student ID card generation parameters and field coordinates",
+      "type": "object",
+      "properties": {
+        "bgImage": { "type": "string" },
+        "bgSizeWidth": { "type": "string" },
+        "bgSizeHeight": { "type": "string" },
+        "bgPositionX": { "type": "string" },
+        "bgPositionY": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "photo": { "$ref": "#/entities/Position" },
+        "id": { "$ref": "#/entities/Position" },
+        "name": { "$ref": "#/entities/Position" },
+        "gender": { "$ref": "#/entities/Position" },
+        "nationality": { "$ref": "#/entities/Position" },
+        "dob": { "$ref": "#/entities/Position" },
+        "grade": { "$ref": "#/entities/Position" },
+        "year": { "$ref": "#/entities/Position" }
+      }
+    },
+    "WatermarkSettings": {
+      "title": "WatermarkSettings",
+      "description": "PDF rendering watermark options",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "size": { "type": "string" },
+        "opacity": { "type": "string" },
+        "angle": { "type": "string" },
+        "color_r": { "type": "string" },
+        "color_g: ": { "type": "string" },
+        "color_b": { "type": "string" }
+      }
+    },
+    "AboutSchool": {
+      "title": "AboutSchool",
+      "description": "School information display content",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "details": { "type": "string" },
+        "phone": { "type": "string" },
+        "map": { "type": "string" },
+        "image": { "type": "string" }
+      }
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "General application assets and parameters",
+      "type": "object",
+      "properties": {
+        "home_slides": { "type": "array" },
+        "school_logo": { "type": "string" },
+        "header_bg": { "type": "string" },
+        "admin_credentials": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "#/entities/Student",
+      "description": "Sub-documents containing student records indexed by unique ID"
+    },
+    "/activities/{activityId}": {
+      "schema": "#/entities/ActivityPost",
+      "description": "Sub-documents for school activities"
+    },
+    "/academic/{postId}": {
+      "schema": "#/entities/AcademicPost",
+      "description": "Bulletins for academic tracking"
+    },
+    "/exams/{postId}": {
+      "schema": "#/entities/ExamPost",
+      "description": "Bulletins for exam results"
+    },
+    "/settings/card_layout": {
+      "schema": "#/entities/CardLayout",
+      "description": "Singleton configuration for student card printing layout"
+    },
+    "/settings/watermark": {
+      "schema": "#/entities/WatermarkSettings",
+      "description": "Singleton configuration for watermark values"
+    },
+    "/settings/about_school": {
+      "schema": "#/entities/AboutSchool",
+      "description": "Singleton describing the school details and description"
+    },
+    "/settings/app_config": {
+      "schema": "#/entities/AppConfig",
+      "description": "A collection map document representing central application configurations and logo assets"
+    }
+  }
+}
