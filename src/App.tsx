@@ -130,24 +130,46 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Set Browser Tab icon (favicon) based on school logo
+  // Set Browser Tab icon (favicon) based on school logo (supporting Desktop, Mobile safari/chrome, and Tablet icons)
   useEffect(() => {
     if (dbState?.school_logo) {
+      const iconUrl = dbState.school_logo;
+
+      // 1. Standard icon
       let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
       if (!link) {
         link = document.createElement('link');
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
       }
-      link.href = dbState.school_logo;
+      link.href = iconUrl;
 
+      // 2. Shortcut icon
       let shortcutLink: HTMLLinkElement | null = document.querySelector("link[rel~='shortcut']");
       if (!shortcutLink) {
         shortcutLink = document.createElement('link');
         shortcutLink.rel = 'shortcut icon';
         document.getElementsByTagName('head')[0].appendChild(shortcutLink);
       }
-      shortcutLink.href = dbState.school_logo;
+      shortcutLink.href = iconUrl;
+
+      // 3. Apple Touch Icon (Critical for iOS Safari, iPadOS & Mobile Browsers)
+      let appleLink: HTMLLinkElement | null = document.querySelector("link[rel='apple-touch-icon']");
+      if (!appleLink) {
+        appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        document.getElementsByTagName('head')[0].appendChild(appleLink);
+      }
+      appleLink.href = iconUrl;
+
+      // 4. Apple Touch Icon Precomposed
+      let applePreLink: HTMLLinkElement | null = document.querySelector("link[rel='apple-touch-icon-precomposed']");
+      if (!applePreLink) {
+        applePreLink = document.createElement('link');
+        applePreLink.rel = 'apple-touch-icon-precomposed';
+        document.getElementsByTagName('head')[0].appendChild(applePreLink);
+      }
+      applePreLink.href = iconUrl;
     }
   }, [dbState?.school_logo]);
 
