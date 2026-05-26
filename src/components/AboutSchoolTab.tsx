@@ -32,6 +32,7 @@ export default function AboutSchoolTab({
 
   // Staff interactive in-card editing states
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [staffToDelete, setStaffToDelete] = useState<string | null>(null);
   const [editStaffName, setEditStaffName] = useState('');
   const [editStaffRole, setEditStaffRole] = useState('គ្រូបង្រៀន');
   const [editStaffSubject, setEditStaffSubject] = useState('');
@@ -197,14 +198,19 @@ export default function AboutSchoolTab({
     }
   };
 
-  const handleDeleteStaff = async (id: string) => {
-    if (!confirm('តើអ្នកពិតជាចង់លុបព័ត៌មានបុគ្គលិកនេះមែនទេ?')) return;
+  const handleDeleteStaff = (id: string) => {
+    setStaffToDelete(id);
+  };
+
+  const handleConfirmDeleteStaff = async () => {
+    if (!staffToDelete) return;
     const currentStaffMembers = dbState.staff_members || [];
-    const updatedStaff = currentStaffMembers.filter((s) => s.id !== id);
+    const updatedStaff = currentStaffMembers.filter((s) => s.id !== staffToDelete);
     await onUpdateDB({ staff_members: updatedStaff });
-    if (editingStaffId === id) {
+    if (editingStaffId === staffToDelete) {
       setEditingStaffId(null);
     }
+    setStaffToDelete(null);
   };
 
   const activeAbout = dbState.about_school;
@@ -619,6 +625,44 @@ export default function AboutSchoolTab({
             </button>
           </div>
         </form>
+      )}
+
+      {/* Modern custom confirmation modal for deleting staff */}
+      {staffToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 select-none">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 space-y-4 border-t-4 border-red-600 animate-in zoom-in-95 duration-150 text-slate-700 font-battambang">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-100 rounded-full text-red-600 flex-shrink-0 animate-pulse">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm font-moul text-red-700">លុបទិន្នន័យបុគ្គលិក</h4>
+                <p className="text-[10px] text-gray-400 mt-0.5">ព័ត៌មាននេះនឹងត្រូវលុបចេញពីប្រព័ន្ធរហូត</p>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed text-gray-600">
+              តើអ្នកពិតជាចង់លុបព័ត៌មានបុគ្គលិកនេះមែនទេ? សកម្មភាពនេះមិនអាចបង្កើតឡើងវិញបានឡើយ។
+            </p>
+
+            <div className="flex justify-end gap-2 text-xs pt-3 border-t font-semibold">
+              <button
+                type="button"
+                onClick={() => setStaffToDelete(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-605 rounded-lg cursor-pointer font-bold"
+              >
+                បោះបង់
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteStaff}
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer flex items-center gap-1.5 font-bold"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> យល់ព្រមលុប
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
