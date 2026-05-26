@@ -21,6 +21,7 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return sessionStorage.getItem('isAdminLoggedIn') === 'true';
   });
+  const [isEditingEnabled, setIsEditingEnabled] = useState<boolean>(false);
 
   // Lightbox Zoom state
   const [viewerZoomSrc, setViewerZoomSrc] = useState<string | null>(null);
@@ -165,6 +166,7 @@ export default function App() {
   const handleAdminLogout = () => {
     sessionStorage.removeItem('isAdminLoggedIn');
     setIsAdminLoggedIn(false);
+    setIsEditingEnabled(false);
     if (activeTab === 'admin') {
       setActiveTab('home');
     }
@@ -453,7 +455,7 @@ export default function App() {
         return (
           <HomeTab
             dbState={dbState}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onUpdateDB={pushState}
             onZoomImage={handleZoomImage}
             onPostActivity={handlePostActivity}
@@ -469,13 +471,14 @@ export default function App() {
             setPublicSearchInput={setSearchQuery}
             searchedStudent={searchedStudent}
             onSearch={handleStudentSearch}
+            isAdmin={isAdminLoggedIn}
           />
         );
       case 'academic-tracking':
         return (
           <AcademicTrackingTab
             dbState={dbState}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onPostAcademic={handlePostAcademic}
             onDeleteAcademic={handleDeleteAcademic}
             onZoomImage={handleZoomImage}
@@ -489,7 +492,7 @@ export default function App() {
         return (
           <StudyScheduleTab
             dbState={dbState}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onPostSchedule={handlePostSchedule}
             onDeleteSchedule={handleDeleteSchedule}
             onZoomImage={handleZoomImage}
@@ -503,7 +506,7 @@ export default function App() {
         return (
           <ExamResultsTab
             dbState={dbState}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onPostExam={handlePostExam}
             onDeleteExam={handleDeleteExam}
             onZoomImage={handleZoomImage}
@@ -517,7 +520,7 @@ export default function App() {
         return (
           <AboutSchoolTab
             dbState={dbState}
-            isAdminLoggedIn={isAdminLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn && isEditingEnabled}
             onUpdateDB={pushState}
           />
         );
@@ -549,6 +552,8 @@ export default function App() {
       <Header
         dbState={dbState}
         isAdminLoggedIn={isAdminLoggedIn}
+        isEditingEnabled={isEditingEnabled}
+        onStartEditing={() => setIsEditingEnabled(true)}
         onLogin={handleAdminLogin}
         onLogout={handleAdminLogout}
         onTabChange={handleTabSelection}
