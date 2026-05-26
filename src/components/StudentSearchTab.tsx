@@ -191,12 +191,7 @@ export default function StudentSearchTab({
                           referrerPolicy="no-referrer"
                           crossOrigin="anonymous"
                         />
-                      ) : (
-                        <div className="text-gray-400 text-center flex flex-col items-center">
-                          <User className="w-8 h-8 opacity-60" />
-                          <span className="text-[9px] mt-1 font-bold">3 x 4</span>
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
