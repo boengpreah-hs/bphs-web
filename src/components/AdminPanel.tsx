@@ -989,7 +989,7 @@ export default function AdminPanel({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'បញ្ជីឈ្មោះសិស្ស_វិទ្យាល័យបារាយណ៍.xlsx';
+    link.download = 'បញ្ជីឈ្មោះសិស្ស_វិទ្យាល័យបឹងព្រះ.xlsx';
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -2261,13 +2261,15 @@ export default function AdminPanel({
                     height: dbState?.card_layout?.photo?.height || '160px',
                   }}
                 >
-                  <img
-                    src={previewStudent.photo || DEFAULT_AVATAR_DATA_URI}
-                    alt={previewStudent.name}
-                    className="w-full h-full object-cover rounded-none"
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                  />
+                  {previewStudent.photo ? (
+                    <img
+                      src={previewStudent.photo}
+                      alt={previewStudent.name}
+                      className="w-full h-full object-cover rounded-none"
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                    />
+                  ) : null}
                 </div>
 
                 {/* Text fields */}
