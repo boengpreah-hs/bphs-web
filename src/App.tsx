@@ -602,85 +602,84 @@ export default function App() {
           }}
 
         >
-          <div className="relative w-full h-full flex items-center justify-center">
-            {/* Left navigation button if multiple images */}
-            {viewerImagesList.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrevImage();
-                }}
-                className="absolute left-3 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
-                title="រូបភាពមុន"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            )}
-
-            {/* Custom Cambodian visual counter for current image */}
-            {viewerImagesList.length > 1 && (
-              <div className="absolute top-[-36px] left-1/2 -translate-x-1/2 text-white text-xs font-battambang bg-black/60 border border-white/10 py-1 px-3 rounded-full pointer-events-none tracking-wide">
-                រូបភាពទី {(viewerImagesList.indexOf(viewerZoomSrc) !== -1 ? viewerImagesList.indexOf(viewerZoomSrc) : 0) + 1} នៃ {viewerImagesList.length}
-              </div>
-            )}
-
-            {/* Close button */}
-            <button
-              className="absolute -top-12 right-0 text-white hover:text-amber-400 text-3xl cursor-pointer"
-              onClick={() => {
-                setViewerZoomSrc(null);
-                setViewerImagesList([]);
+          {/* រូបភាព — ពេញអេក្រង់ទាំងស្រុង */}
+          <div
+            className="absolute inset-0 flex items-center justify-center overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              className={`transition-all duration-200 ${
+                isOriginalSize
+                  ? 'max-w-none max-h-none h-auto w-auto object-none cursor-zoom-out'
+                  : 'max-w-full max-h-full w-auto h-auto object-contain cursor-zoom-in'
+              }`}
+              src={viewerZoomSrc}
+              alt="Zoom Lightbox"
+              referrerPolicy="no-referrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOriginalSize(!isOriginalSize);
               }}
-            >
-              <X className="w-8 h-8" />
-            </button>
-            
-            <div 
-              className="w-full h-full overflow-auto flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                className={`transition-all duration-200 ${
-                  isOriginalSize 
-                    ? 'max-w-none max-h-none h-auto w-auto object-none cursor-zoom-out' 
-                    : 'max-w-full max-h-full w-auto h-auto object-contain cursor-zoom-in'
-                }`}
-                src={viewerZoomSrc}
-                alt="Zoom Lightbox"
-                referrerPolicy="no-referrer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOriginalSize(!isOriginalSize);
-                }}
-              />
-            </div>
-
-            {/* Right navigation button if multiple images */}
-            {viewerImagesList.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNextImage();
-                }}
-                className="absolute right-3 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
-                title="រូបភាពបន្ទាប់"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            )}
+            />
           </div>
-          <div className="mt-4 flex flex-wrap justify-center gap-2 select-none" onClick={(e) => e.stopPropagation()}>
+
+          {/* ប៊ូតុង X — អណ្ដែតខាងលើស្ដាំ */}
+          <button
+            className="absolute top-4 right-4 z-50 bg-black/60 hover:bg-red-600 text-white p-2 rounded-full transition-all duration-200 cursor-pointer shadow-lg border border-white/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setViewerZoomSrc(null);
+              setViewerImagesList([]);
+            }}
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Counter — អណ្ដែតខាងលើកណ្ដាល */}
+          {viewerImagesList.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-white text-xs font-battambang bg-black/60 border border-white/10 py-1 px-3 rounded-full pointer-events-none tracking-wide">
+              រូបភាពទី {(viewerImagesList.indexOf(viewerZoomSrc) !== -1 ? viewerImagesList.indexOf(viewerZoomSrc) : 0) + 1} នៃ {viewerImagesList.length}
+            </div>
+          )}
+
+          {/* ប៊ូតុង ← — អណ្ដែតខាងឆ្វេងកណ្ដាល */}
+          {viewerImagesList.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-50 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center shadow-lg border border-white/10"
+              title="រូបភាពមុន"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* ប៊ូតុង → — អណ្ដែតខាងស្ដាំកណ្ដាល */}
+          {viewerImagesList.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-50 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center shadow-lg border border-white/10"
+              title="រូបភាពបន្ទាប់"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* ប៊ូតុង Download + បិទ — អណ្ដែតខាងក្រោមកណ្ដាល */}
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={(e) => handleDownloadImage(viewerZoomSrc, e)}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition font-battambang cursor-pointer shadow-md"
             >
               <Download className="w-4 h-4" /> ទាញយករូបភាព
             </button>
-            
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setViewerZoomSrc(null);
                 setViewerImagesList([]);
               }}
