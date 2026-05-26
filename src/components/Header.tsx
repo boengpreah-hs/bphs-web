@@ -4,12 +4,14 @@
  */
 
 import React, { useState } from 'react';
-import { LogIn, LogOut, Phone, ShieldAlert, X } from 'lucide-react';
+import { LogIn, LogOut, Phone, ShieldAlert, X, Edit } from 'lucide-react';
 import { DBState } from '../types';
 
 interface HeaderProps {
   dbState: DBState;
   isAdminLoggedIn: boolean;
+  isEditingEnabled: boolean;
+  onStartEditing: () => void;
   onLogin: (u: string, p: string) => boolean;
   onLogout: () => void;
   onTabChange: (tab: string) => void;
@@ -18,6 +20,8 @@ interface HeaderProps {
 export default function Header({
   dbState,
   isAdminLoggedIn,
+  isEditingEnabled,
+  onStartEditing,
   onLogin,
   onLogout,
   onTabChange,
@@ -100,6 +104,16 @@ export default function Header({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm font-semibold text-gray-200">
+            {isAdminLoggedIn && !isEditingEnabled && (
+              <button
+                id="btn-start-editing"
+                onClick={onStartEditing}
+                className="hover:text-amber-300 text-amber-200 bg-amber-600/40 hover:bg-amber-600/65 transition cursor-pointer flex items-center gap-1.5 py-1.5 px-4 rounded-full border border-amber-500/40 font-battambang"
+              >
+                <Edit className="w-4 h-4 text-amber-400 animate-pulse" /> កែព័ត៌មាន
+              </button>
+            )}
+
             <a
               id="btn-contact-link"
               href={`tel:${dbState.about_school.phone || '0966187972'}`}
@@ -116,7 +130,7 @@ export default function Header({
                 className="px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-bold transition flex items-center gap-2 shadow-md cursor-pointer transform hover:scale-105 active:scale-95 duration-150"
               >
                 <LogIn className="w-4 h-4" />
-                <span>ចូលគណនី (Admin)</span>
+                <span>ចូលគ្រូគ្រប់គ្រង (Admin)</span>
               </button>
             ) : (
               <div id="admin-session-indicator" className="text-amber-400 flex items-center gap-2 font-battambang">
