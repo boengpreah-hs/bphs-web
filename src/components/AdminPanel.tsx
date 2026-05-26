@@ -23,7 +23,8 @@ import {
   UserPlus,
   Download,
   X,
-  AlignLeft
+  AlignLeft,
+  ShieldAlert
 } from 'lucide-react';
 import { DBState, Student, CardLayout, WatermarkSettings } from '../types';
 import { fileToBase64, compressImage } from '../utils';
@@ -283,6 +284,32 @@ export default function AdminPanel({
   const [showWatermark, setShowWatermark] = useState(false);
   const [showExcelExport, setShowExcelExport] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showAdminSettings, setShowAdminSettings] = useState(false);
+
+  const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [adminGmail, setAdminGmail] = useState('');
+
+  useEffect(() => {
+    if (dbState?.admin_credentials && !showAdminSettings) {
+      setAdminUser(dbState.admin_credentials.username || '');
+      setAdminPass(dbState.admin_credentials.password || '');
+      setAdminGmail(dbState.admin_credentials.confirmGmail || '');
+    }
+  }, [dbState, showAdminSettings]);
+
+  const handleSaveAdminCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onUpdateDB({
+      admin_credentials: {
+        username: adminUser.trim(),
+        password: adminPass.trim(),
+        confirmGmail: adminGmail.trim()
+      }
+    });
+    alert('ការកំណត់គណនី Admin ត្រូវបានរក្សាទុកដោយជោគជ័យ!');
+    setShowAdminSettings(false);
+  };
 
   // Layout Design selection state
   const [selectedField, setSelectedField] = useState<string | null>(null);
@@ -1268,6 +1295,12 @@ export default function AdminPanel({
               className="px-3.5 py-2 bg-red-700 hover:bg-red-650 rounded-lg transition shadow-3xs cursor-pointer flex items-center gap-1 font-battambang font-bold"
             >
               <Trash2 className="w-4 h-4" /> លុបសិស្ស
+            </button>
+            <button
+              onClick={() => setShowAdminSettings(true)}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition shadow-3xs cursor-pointer flex items-center gap-1 font-battambang font-bold"
+            >
+              <ShieldAlert className="w-4 h-4 text-amber-400" /> គ្រប់គ្រងគណនី Admin
             </button>
           </div>
         </div>
@@ -2619,6 +2652,80 @@ export default function AdminPanel({
                 <Trash2 className="w-3.5 h-3.5" /> យល់ព្រមលុប
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern custom modal for Admin Account Settings */}
+      {showAdminSettings && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 border-t-4 border-[#0f2c59] animate-in zoom-in-95 duration-150 text-slate-700 font-battambang">
+            <div className="flex items-center gap-3 pb-2 border-b">
+              <div className="p-2.5 bg-blue-100 rounded-full text-[#0f2c59] flex-shrink-0">
+                <ShieldAlert className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm font-moul text-[#0f2c59]">គ្រប់គ្រងគណនី Admin</h4>
+                <p className="text-[10px] text-gray-400 mt-0.5">កំណត់ព័ត៌មានសម្ងាត់សម្រាប់ចូលបញ្ជាប្រព័ន្ធ</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveAdminCredentials} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-600 font-bold mb-1">Username គណនី *</label>
+                <input
+                  type="text"
+                  required
+                  value={adminUser}
+                  onChange={(e) => setAdminUser(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ឧ. SengVa"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-600 font-bold mb-1">លេខសម្ងាត់ថ្មី (Password) *</label>
+                <input
+                  type="password"
+                  required
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="លាក់ទុក ឬលេខសម្ងាត់ថ្មី"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#0f2c59] font-bold mb-1">Gmail សម្រាប់សង្គ្រោះគណនី *</label>
+                <input
+                  type="email"
+                  required
+                  value={adminGmail}
+                  onChange={(e) => setAdminGmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ឧ. user@gmail.com"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  * ប្រើសម្រាប់សង្គ្រោះករណីភ្លេចលេខសម្ងាត់ តាមរយៈផ្ទាំងភ្នែកសង្គ្រោះលាក់ទុក
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminSettings(false)}
+                  className="px-4 py-2 bg-gray-105 hover:bg-gray-200 text-gray-600 rounded-lg cursor-pointer font-bold"
+                >
+                  បោះបង់
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#0f2c59] hover:bg-slate-800 text-white rounded-lg cursor-pointer flex items-center gap-1.5 font-bold"
+                >
+                  រក្សាទុក
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
