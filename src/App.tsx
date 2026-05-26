@@ -25,7 +25,7 @@ export default function App() {
   // Lightbox Zoom state
   const [viewerZoomSrc, setViewerZoomSrc] = useState<string | null>(null);
   const [viewerImagesList, setViewerImagesList] = useState<string[]>([]);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
   const [isOriginalSize, setIsOriginalSize] = useState<boolean>(false);
 
   const handleZoomImage = (src: string, allImages?: string[]) => {
@@ -595,29 +595,14 @@ export default function App() {
       {/* LIGHTBOX PHOTO ZOOM Lightbox */}
       {viewerZoomSrc && (
         <div
-          className="fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 animate-in fade-in duration-200 select-none"
+          className="fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-200 select-none"
           onClick={() => {
             setViewerZoomSrc(null);
             setViewerImagesList([]);
           }}
-          onTouchStart={(e) => {
-            setTouchStartX(e.touches[0].clientX);
-          }}
-          onTouchEnd={(e) => {
-            if (touchStartX === null) return;
-            const touchEndX = e.changedTouches[0].clientX;
-            const diff = touchStartX - touchEndX;
-            if (Math.abs(diff) > 40) {
-              if (diff > 0) {
-                handleNextImage();
-              } else {
-                handlePrevImage();
-              }
-            }
-            setTouchStartX(null);
-          }}
+
         >
-          <div className="relative max-w-4xl w-full max-h-[80vh] flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center">
             {/* Left navigation button if multiple images */}
             {viewerImagesList.length > 1 && (
               <button
@@ -626,7 +611,7 @@ export default function App() {
                   e.stopPropagation();
                   handlePrevImage();
                 }}
-                className="absolute left-2 md:-left-16 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
+                className="absolute left-3 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
                 title="រូបភាពមុន"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -652,14 +637,14 @@ export default function App() {
             </button>
             
             <div 
-              className="max-w-full max-h-[75vh] overflow-auto rounded-xl shadow-2xl bg-black/40 border border-white/5 flex items-center justify-center"
+              className="w-full h-full overflow-auto flex items-center justify-center"
               onClick={(e) => e.stopPropagation()}
             >
               <img
                 className={`transition-all duration-200 ${
                   isOriginalSize 
                     ? 'max-w-none max-h-none h-auto w-auto object-none cursor-zoom-out' 
-                    : 'max-w-full max-h-[75vh] object-contain cursor-zoom-in'
+                    : 'max-w-full max-h-full w-auto h-auto object-contain cursor-zoom-in'
                 }`}
                 src={viewerZoomSrc}
                 alt="Zoom Lightbox"
@@ -679,7 +664,7 @@ export default function App() {
                   e.stopPropagation();
                   handleNextImage();
                 }}
-                className="absolute right-2 md:-right-16 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
+                className="absolute right-3 bg-black/70 hover:bg-amber-600 hover:text-black hover:scale-115 active:scale-95 text-white p-2.5 rounded-full transition-all duration-200 cursor-pointer z-50 flex items-center justify-center shadow-lg border border-white/10"
                 title="រូបភាពបន្ទាប់"
               >
                 <ChevronRight className="w-6 h-6" />
