@@ -614,7 +614,7 @@ export default function App() {
             { id: 'exam-results', label: 'លទ្ធផលប្រឡងសញ្ញាបត្រ', icon: <ClipboardCopy className="w-4 h-4" /> },
             { id: 'about-school', label: 'អំពីសាលា', icon: <School className="w-4 h-4" /> },
             ...(isAdminLoggedIn
-              ? [{ id: 'admin', label: 'ទិន្នន័យសិស្ស និងប្លង់កាត', icon: <Settings className="w-4 h-4" /> }]
+              ? [{ id: 'admin', label: 'ការគ្រប់គ្រងទិន្នន័យ', icon: <Settings className="w-4 h-4" /> }]
               : []),
           ].map((tab) => (
             <button
