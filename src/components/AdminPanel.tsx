@@ -474,6 +474,13 @@ export default function AdminPanel({
   const [showAdminSettings, setShowAdminSettings] = useState(false);
   const [isExportingBak, setIsExportingBak] = useState(false);
   const [isImportingBak, setIsImportingBak] = useState(false);
+  const [customAlert, setCustomAlert] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'confirm' | 'info';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Download export snapshot file
   const handleExportFullBackup = async () => {
@@ -495,13 +502,28 @@ export default function AdminPanel({
         document.body.removeChild(link);
         URL.revokeObjectURL(downloadUrl);
         
-        alert('ជោគជ័យ៖ ឯកសារបម្រុងទុកទិន្នន័យ និងរូបភាពសរុបរួមត្រូវបានទាញយកដោយជោគជ័យ!');
+        setCustomAlert({
+          isOpen: true,
+          type: 'success',
+          title: 'ទាញយក Backup ជោគជ័យ!',
+          message: 'ឯកសារបម្រុងទុកទិន្នន័យ (បញ្ជីសិស្ស, រូបភាព 3x4, ប្លង់កាត, Logo និងការបង្ហោះទាំងអស់) ត្រូវបានចងក្រង និងទាញយកដោយជោគជ័យទៅក្នុងកុំព្យូទ័ររបស់អ្នក!'
+        });
       } else {
-        alert('បរាជ័យ៖ មិនអាចបង្កើតឯកសារបម្រុងទុកទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error'));
+        setCustomAlert({
+          isOpen: true,
+          type: 'error',
+          title: 'បរាជ័យក្នុងការចងក្រង Backup!',
+          message: 'មិនអាចបង្កើតឯកសារបម្រុងទុកទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error')
+        });
       }
     } catch (err: any) {
       console.error(err);
-      alert('បរាជ័យ៖ កំហុសបណ្តាញ ឬប្រព័ន្ធ៖ ' + (err.message || err));
+      setCustomAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'កំហុសប្រព័ន្ធ!',
+        message: 'មានបញ្ហាបណ្តាញ ឬម៉ាស៊ីនបម្រើ៖ ' + (err.message || err)
+      });
     } finally {
       setIsExportingBak(false);
     }
@@ -512,55 +534,86 @@ export default function AdminPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const confirmRestore = window.confirm(
-      "ព្រមាន៖ ការនាំចូលឯកសារបម្រុងទុក (Backup) នេះ នឹងជំនួសទិន្នន័យសិស្សានុសិស្ស ប្លង់ការចនា រូបភាព និងការបង្ហោះទាំងអស់នៅក្នុងប្រព័ន្ធបច្ចុប្បន្នទាំងស្រុង! តើអ្នកពិតជាចង់បន្តមែនទេ?"
-    );
-    if (!confirmRestore) {
-      e.target.value = '';
-      return;
-    }
-
-    setIsImportingBak(true);
-    try {
-      const fileReader = new FileReader();
-      fileReader.onload = async (event) => {
+    setCustomAlert({
+      isOpen: true,
+      type: 'confirm',
+      title: 'ព្រមាន៖ ការនាំចូលទិន្នន័យសរុប!',
+      message: 'ការស្ដារឡើងវិញនេះ នឹងជំនួសរាល់បញ្ជីឈ្មោះសិស្ស, រូបថត, ការចនាប្លង់, រូបភាពស្លាយ, Logo និងរាល់ព័ត៌មានដែលកំពុងមានក្នុងប្រព័ន្ធបច្ចុប្បន្នទាំងស្រុង! តើអ្នកពិតជាចង់បន្តមែនទេ?',
+      onConfirm: async () => {
+        setIsImportingBak(true);
+        // hide the modal
+        setCustomAlert(null);
         try {
-          const content = event.target?.result as string;
-          const parsed = JSON.parse(content);
-          
-          if (!parsed.backupVersion || !parsed.db) {
-            alert('បរាជ័យ៖ ទម្រង់ឯកសារបម្រុងទុកមិនត្រឹមត្រូវទេ!');
-            setIsImportingBak(false);
-            return;
-          }
+          const fileReader = new FileReader();
+          fileReader.onload = async (event) => {
+            try {
+              const content = event.target?.result as string;
+              const parsed = JSON.parse(content);
+              
+              if (!parsed.backupVersion || !parsed.db) {
+                setCustomAlert({
+                  isOpen: true,
+                  type: 'error',
+                  title: 'ទម្រង់ឯកសារមិនត្រឹមត្រូវ!',
+                  message: 'ឯកសារដែលបានជ្រើសរើស មិនមែនជាឯកសារបម្រុងទុក (.schoolbak) ត្រឹមត្រូវរបស់ប្រព័ន្ធឡើយ!'
+                });
+                setIsImportingBak(false);
+                return;
+              }
 
-          const res = await fetch('/api/restore-full', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ backup: parsed })
-          });
+              const res = await fetch('/api/restore-full', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backup: parsed })
+              });
+              
+              const json = await res.json();
+              if (json.status === 'success') {
+                setCustomAlert({
+                  isOpen: true,
+                  type: 'success',
+                  title: 'ស្តារទិន្នន័យជោគជ័យ!',
+                  message: 'រាល់ទិន្នន័យ និងរូបភាពសាលាទាំងអស់ ត្រូវបានស្តារឡើងវិញពេញលេញដោយជោគជ័យ! ទំព័រនឹងដំណើរការឡើងវិញភ្លាមៗ។',
+                  onConfirm: () => {
+                    window.location.reload();
+                  }
+                });
+              } else {
+                setCustomAlert({
+                  isOpen: true,
+                  type: 'error',
+                  title: 'ការស្តារឡើងវិញបរាជ័យ!',
+                  message: 'មិនអាចនាំចូលទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error')
+                });
+              }
+            } catch (err: any) {
+              console.error(err);
+              setCustomAlert({
+                isOpen: true,
+                type: 'error',
+                title: 'កំហុសក្នុងការអានឯកសារ!',
+                message: 'មិនអាចអាន ឬបំប្លែងព័ត៌មាននៅក្នុងឯកសារបានឡើយ៖ ' + (err.message || err)
+              });
+            } finally {
+              setIsImportingBak(false);
+            }
+          };
           
-          const json = await res.json();
-          if (json.status === 'success') {
-            alert('ជោគជ័យ៖ ទិន្នន័យ និងរូបភាពទាំងអស់ត្រូវបានស្តារឡើងវិញដោយជោគជ័យ! ប្រព័ន្ធនឹងរៀបចំដំណើរការឡើងវិញភ្លាមៗ។');
-            window.location.reload();
-          } else {
-            alert('បរាជ័យ៖ មិនអាចបញ្ចូលទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error'));
-          }
+          fileReader.readAsText(file);
         } catch (err: any) {
           console.error(err);
-          alert('បរាជ័យ៖ មិនអាចអាន ឬបំប្លែងព័ត៌មាននៅក្នុងឯកសារបានទេ។ ' + (err.message || err));
-        } finally {
+          setCustomAlert({
+            isOpen: true,
+            type: 'error',
+            title: 'មានកំហុស!',
+            message: 'មានកំហុសក្នុងការបើកឯកសារ៖ ' + (err.message || err)
+          });
           setIsImportingBak(false);
         }
-      };
-      
-      fileReader.readAsText(file);
-    } catch (err: any) {
-      console.error(err);
-      alert('បរាជ័យ៖ មានកំហុសក្នុងការអានឯកសារ៖ ' + (err.message || err));
-      setIsImportingBak(false);
-    }
+      }
+    });
+
+    e.target.value = '';
   };
 
   const [adminUser, setAdminUser] = useState('');
@@ -1888,7 +1941,7 @@ export default function AdminPanel({
             </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs text-gray-700 font-battambang">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 text-xs text-gray-700 font-battambang p-1">
             {/* Controls Side sidebar */}
             <div className="lg:col-span-5 space-y-3 bg-slate-50 p-4 border rounded-xl">
               <div>
@@ -2162,10 +2215,10 @@ export default function AdminPanel({
             </div>
 
             {/* Simulated Live visual preview card frame - 50% Larger Visuals (scaled up) */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center relative" style={{ minHeight: '850px' }}>
+            <div className="lg:col-span-12 xl:col-span-7 flex flex-col items-center justify-center relative p-0 overflow-hidden" style={{ minHeight: '760px' }}>
               
-              <div className="relative overflow-visible flex items-center justify-center" style={{ width: '562.5px', height: '750px' }}>
-                <div style={{ transform: 'scale(1.5)', transformOrigin: 'center center' }} className="relative text-slate-800 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
+              <div className="relative overflow-visible flex items-center justify-center p-0 m-0" style={{ width: '562.5px', height: '750px' }}>
+                <div style={{ transform: 'scale(1.5)', transformOrigin: 'center center' }} className="relative text-slate-800 shadow-3xs border border-slate-100/40">
                   <div
                     id="designer-card-render"
                     className="student-card-size bg-white relative overflow-hidden"
@@ -3057,6 +3110,95 @@ export default function AdminPanel({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* GORGEOUS CUSTOM PORTAL MODAL POPUP FOR BACKUP/RESTORE ALERTS */}
+      {customAlert?.isOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs font-battambang animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100/85 transform scale-100 transition-all animate-in zoom-in-95 duration-150">
+            <div className="flex flex-col items-center text-center space-y-4">
+              {/* Type-based Beautiful Animated Circle Icons */}
+              {customAlert.type === 'success' && (
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shadow-inner animate-bounce">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {customAlert.type === 'error' && (
+                <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center shadow-inner animate-pulse">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              {customAlert.type === 'confirm' && (
+                <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center shadow-inner animate-pulse">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              )}
+              {customAlert.type === 'info' && (
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shadow-inner">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Title featuring moul font */}
+              <h4 className="text-base font-bold text-slate-800 font-moul leading-snug">
+                {customAlert.title}
+              </h4>
+
+              {/* Message */}
+              <p className="text-xs text-slate-500 leading-relaxed font-battambang">
+                {customAlert.message}
+              </p>
+
+              {/* Actions Footer */}
+              <div className="flex gap-3 w-full pt-3 border-t border-slate-100 font-semibold font-battambang">
+                {customAlert.type === 'confirm' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAlert(null)}
+                      className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                    >
+                      បោះបង់
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customAlert.onConfirm) {
+                          customAlert.onConfirm();
+                        }
+                      }}
+                      className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                    >
+                      យល់ព្រមបន្ត
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customAlert.onConfirm) {
+                        customAlert.onConfirm();
+                      } else {
+                        setCustomAlert(null);
+                      }
+                    }}
+                    className="w-full py-2.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl transition shadow-md cursor-pointer"
+                  >
+                    យល់ព្រម
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
