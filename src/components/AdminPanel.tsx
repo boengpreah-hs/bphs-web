@@ -35,6 +35,125 @@ import html2canvas from 'html2canvas';
 
 const DEFAULT_AVATAR_DATA_URI = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 160' width='120' height='160'></svg>";
 
+// ======================================================
+// drawCardToCanvas — គូរកាតសិស្សដោយផ្ទាល់ទៅ Canvas
+// ប្រើ naturalWidth/naturalHeight ដើម → 100% original resolution
+// ======================================================
+function loadImg(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function drawCardToCanvas(
+  student: { id: string; name: string; gender: string; dob: string; grade: string; photo?: string },
+  layout: any,
+  watermark?: { text?: string; size?: string; opacity?: string; angle?: string; color_r?: string; color_g?: string; color_b?: string },
+  showWatermark = false
+): Promise<HTMLCanvasElement> {
+  const bgImg    = layout.bgImage ? await loadImg(layout.bgImage) : null;
+  const photoImg = student.photo  ? await loadImg(student.photo)  : null;
+
+  // Canvas size = naturalWidth of bg image (or 375*6 fallback)
+  let cW: number, cH: number;
+  if (bgImg && bgImg.naturalWidth > 0) {
+    cW = bgImg.naturalWidth;
+    cH = bgImg.naturalHeight;
+  } else {
+    cW = 375 * 6;
+    cH = 500 * 6;
+  }
+
+  const scaleX = cW / 375;
+  const scaleY = cH / 500;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = cW;
+  canvas.height = cH;
+  const ctx = canvas.getContext('2d')!;
+
+  // ១. Background
+  if (bgImg) {
+    const bx = parseFloat(layout.bgPositionX || '0') * scaleX;
+    const by = parseFloat(layout.bgPositionY || '0') * scaleY;
+    const bw = cW * (parseFloat(layout.bgSizeWidth  || '100') / 100);
+    const bh = cH * (parseFloat(layout.bgSizeHeight || '100') / 100);
+    ctx.drawImage(bgImg, bx, by, bw, bh);
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cW, cH);
+  }
+
+  // ២. Student Photo (contain, centered in slot)
+  if (photoImg) {
+    const pl = parseFloat(layout.photo?.left   || '25px');
+    const pt = parseFloat(layout.photo?.top    || '115px');
+    const pw = parseFloat(layout.photo?.width  || '120px');
+    const ph = parseFloat(layout.photo?.height || '160px');
+    const slotW = pw * scaleX;
+    const slotH = ph * scaleY;
+    const ratio = Math.min(slotW / photoImg.naturalWidth, slotH / photoImg.naturalHeight);
+    const dw = photoImg.naturalWidth  * ratio;
+    const dh = photoImg.naturalHeight * ratio;
+    const dx = pl * scaleX + (slotW - dw) / 2;
+    const dy = pt * scaleY + (slotH - dh) / 2;
+    ctx.drawImage(photoImg, dx, dy, dw, dh);
+  }
+
+  // ៣. Text fields
+  ctx.textBaseline = 'top';
+  const fields = [
+    { key: 'id',          label: 'អត្តលេខ: ',         value: student.id,                           cfg: layout.id          },
+    { key: 'name',        label: 'ឈ្មោះ: ',            value: student.name,                         cfg: layout.name        },
+    { key: 'gender',      label: 'ភេទ: ',              value: student.gender,                        cfg: layout.gender      },
+    { key: 'nationality', label: 'សញ្ជាតិ: ',          value: 'ខ្មែរ',                             cfg: layout.nationality },
+    { key: 'dob',         label: 'ថ្ងៃខែឆ្នាំកំណើត: ', value: student.dob,                           cfg: layout.dob         },
+    { key: 'grade',       label: 'ថ្នាក់ទី: ',          value: student.grade,                         cfg: layout.grade       },
+    { key: 'year',        label: 'ឆ្នាំសិក្សា: ',       value: layout.academicYear || '2025-2026',   cfg: layout.year        },
+  ];
+
+  fields.forEach((f) => {
+    const fs = parseFloat(f.cfg?.fontSize || '14') * scaleX;
+    const fx = parseFloat(f.cfg?.left     || '165px') * scaleX;
+    const fy = parseFloat(f.cfg?.top      || '150px') * scaleY;
+
+    ctx.font      = `${fs}px Battambang, sans-serif`;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(f.label, fx, fy);
+
+    const labelW = ctx.measureText(f.label).width;
+    ctx.font      = `bold ${fs}px Battambang, sans-serif`;
+    ctx.fillStyle = '#1e40af';
+    ctx.fillText(f.value || '', fx + labelW, fy);
+  });
+
+  // ៤. Watermark (optional)
+  if (showWatermark && watermark?.text) {
+    const wmSize    = parseFloat(watermark.size    || '28') * scaleX;
+    const wmOpacity = (parseFloat(watermark.opacity || '20') / 100);
+    const wmAngle   = parseFloat(watermark.angle   || '-45') * (Math.PI / 180);
+    const r = watermark.color_r || '107';
+    const g = watermark.color_g || '114';
+    const b = watermark.color_b || '128';
+
+    ctx.save();
+    ctx.translate(cW / 2, cH / 2);
+    ctx.rotate(wmAngle);
+    ctx.font      = `${wmSize}px Moul, cursive`;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${wmOpacity})`;
+    ctx.textAlign = 'center';
+    ctx.fillText(watermark.text, 0, 0);
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
 let sharedCanvas: HTMLCanvasElement | null = null;
 let sharedCtx: CanvasRenderingContext2D | null = null;
 
@@ -523,27 +642,27 @@ export default function AdminPanel({
     setShowAddForm(true);
   };
 
-  // Canvas Image compression helper for fast upload on mobile
+  // Photo upload - preserve original resolution & quality (no compression)
   const handleFormPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
       const base64 = await fileToBase64(file);
-      // Compact the image dimensions down heavily (3x4 ratio means 300x400 is plenty high-res, reduces 10MB to 40KB!)
-      const compressed = await compressImage(base64, 300, 400, 0.8);
-      
-      // Upload to server asset directory so it's super fast, and returns relative path URL
+      // Determine extension from file type
+      const ext = file.type.split('/')[1] || 'jpg';
+
+      // Upload to server at original quality - no compression applied
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: compressed, name: `student_photo_${id}`, ext: 'jpg' })
+        body: JSON.stringify({ file: base64, name: `student_photo_${id}`, ext })
       });
       const resData = await response.json();
       if (resData.status === 'success') {
         setPhoto(resData.url);
       } else {
-        setPhoto(compressed); // Fallback to base64
+        setPhoto(base64); // Fallback to original base64 (no compression)
       }
     } catch (err) {
       alert('កំហុសក្នុងការកែច្នៃរូបថត!');
@@ -597,19 +716,19 @@ export default function AdminPanel({
           ctx.scale(-1, 1);
         }
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const base64 = canvas.toDataURL('image/jpeg', 0.9);
+        // Preserve original camera resolution - no downscaling
+        const base64 = canvas.toDataURL('image/jpeg', 1.0);
         
-        const compressed = await compressImage(base64, 300, 400, 0.8);
         const response = await fetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file: compressed, name: `student_photo_${id || 'new'}`, ext: 'jpg' })
+          body: JSON.stringify({ file: base64, name: `student_photo_${id || 'new'}`, ext: 'jpg' })
         });
         const resData = await response.json();
         if (resData.status === 'success') {
           setPhoto(resData.url);
         } else {
-          setPhoto(compressed);
+          setPhoto(base64); // Fallback to original base64
         }
       }
     } catch (err) {
@@ -969,7 +1088,7 @@ export default function AdminPanel({
     alert('រក្សាទុក Google Drive Deploy Script URL រួចរាល់!');
   };
 
-  // PDF Multi-generation with canvas
+  // PDF Multi-generation — Direct Canvas (original bg + photo resolution, PNG lossless)
   const handlePdfGeneration = async () => {
     setPdfProgress(1);
     setPdfStatusMsg('កំពុងដំណើរការ...');
@@ -986,32 +1105,6 @@ export default function AdminPanel({
     }
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [75, 100] });
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.top = '-9999px';
-    tempContainer.style.left = '-9999px';
-    document.body.appendChild(tempContainer);
-
-    // Dynamically calculate PDF generation scale to match background image's original high resolution
-    let downloadScale = 4; // high-quality default fallback
-    const bgImgUrl = dbState.card_layout.bgImage;
-    if (bgImgUrl) {
-      setPdfStatusMsg('កំពុងគណនាទំហំផ្ទៃក្រោយដើម...');
-      await new Promise<void>((resolve) => {
-        const bgImg = new Image();
-        bgImg.crossOrigin = 'anonymous';
-        bgImg.onload = () => {
-          if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
-            downloadScale = bgImg.naturalWidth / 375;
-          }
-          resolve();
-        };
-        bgImg.onerror = () => {
-          resolve();
-        };
-        bgImg.src = bgImgUrl;
-      });
-    }
 
     for (let i = 0; i < targets.length; i++) {
       const student = targets[i];
@@ -1019,86 +1112,15 @@ export default function AdminPanel({
       setPdfStatusMsg(`កំពុងគូររូប៖ ${student.name}`);
       setPdfProgress(prog);
 
-      // Create a temporary element to render card perfectly
-      const cardEl = document.createElement('div');
-      cardEl.className = 'student-card-size bg-white relative overflow-hidden';
-      cardEl.style.cssText = `
-        width: 375px;
-        height: 500px;
-        position: relative;
-        background-image: ${
-          dbState.card_layout.bgImage ? `url(${dbState.card_layout.bgImage})` : 'none'
-        };
-        background-size: ${dbState.card_layout.bgSizeWidth || '100'}% ${
-        dbState.card_layout.bgSizeHeight || '100'
-      }%;
-        background-position: ${dbState.card_layout.bgPositionX || '0'}px ${
-        dbState.card_layout.bgPositionY || '0'
-      }px;
-        background-repeat: no-repeat;
-      `;
-
-      // Build text inner layouts
-      const fields = [
-        { id: 'photo', html: `<div style="width:100%;height:100%;overflow:hidden"><img src="${student.photo || ''}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;${student.photo ? '' : 'display:none'}"></div>`, style: `width: ${dbState?.card_layout?.photo?.width || '120px'}; height: ${dbState?.card_layout?.photo?.height || '160px'};` },
-        { id: 'id', html: `អត្តលេខ: <span style="font-weight:bold;color:#1e40af">${student.id}</span>`, style: `font-size:${dbState?.card_layout?.id?.fontSize || '14'}px` },
-        { id: 'name', html: `ឈ្មោះ: <span style="font-weight:bold;color:#1e40af">${student.name}</span>`, style: `font-size:${dbState?.card_layout?.name?.fontSize || '14'}px` },
-        { id: 'gender', html: `ភេទ: <span style="font-weight:bold;color:#1e40af">${student.gender}</span>`, style: `font-size:${dbState?.card_layout?.gender?.fontSize || '14'}px` },
-        { id: 'nationality', html: `សញ្ជាតិ: <span style="font-weight:bold;color:#1e40af">ខ្មែរ</span>`, style: `font-size:${dbState?.card_layout?.nationality?.fontSize || '14'}px` },
-        { id: 'dob', html: `ថ្ងៃខែឆ្នាំកំណើត: <span style="font-weight:bold;color:#1e40af">${student.dob}</span>`, style: `font-size:${dbState?.card_layout?.dob?.fontSize || '13'}px` },
-        { id: 'grade', html: `ថ្នាក់ទី: <span style="font-weight:bold;color:#1e40af">${student.grade}</span>`, style: `font-size:${dbState?.card_layout?.grade?.fontSize || '14'}px` },
-        { id: 'year', html: `ឆ្នាំសិក្សា: <span style="font-weight:bold;color:#1e40af">${dbState?.card_layout?.academicYear || '2025-2026'}</span>`, style: `font-size:${dbState?.card_layout?.year?.fontSize || '14'}px` },
-      ];
-
-      fields.forEach((f) => {
-        const item = document.createElement('div');
-        const fConfig = (dbState?.card_layout as any)?.[f.id] || { left: '165px', top: '150px' };
-        item.style.cssText = `position:absolute; font-family:'Battambang',sans-serif; left:${
-          fConfig.left || '165px'
-        }; top:${fConfig.top || '150px'}; ${f.style}`;
-        item.innerHTML = f.html;
-        cardEl.appendChild(item);
-      });
-
-      // Watermark (Hidden for Admin PDF downloads)
-      if (dbState.watermark.text && false) {
-        const wmDiv = document.createElement('div');
-        wmDiv.style.cssText = `
-          position: absolute;
-          inset: 0px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          pointer-events: none;
-          user-select: none;
-          font-family: 'Moul', cursive;
-          transform: rotate(${dbState.watermark.angle || '-45'}deg);
-          font-size: ${dbState.watermark.size || '28'}px;
-          color: rgba(${dbState.watermark.color_r}, ${dbState.watermark.color_g}, ${
-          dbState.watermark.color_b
-        }, ${(Number(dbState.watermark.opacity) || 20) / 100});
-          white-space: nowrap;
-          z-index: 49;
-        `;
-        wmDiv.textContent = dbState.watermark.text;
-        cardEl.appendChild(wmDiv);
-      }
-
-      tempContainer.appendChild(cardEl);
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      const canvas = await html2canvasSafe(cardEl, { scale: downloadScale, useCORS: true });
-      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      // គូរ Canvas ដោយផ្ទាល់ — original bg & photo resolution, PNG lossless
+      const canvas  = await drawCardToCanvas(student, dbState.card_layout);
+      const imgData = canvas.toDataURL('image/png');
 
       if (i > 0) doc.addPage([75, 100], 'portrait');
-      doc.addImage(imgData, 'JPEG', 0, 0, 75, 100);
-
-      // Remove from pool immediately to save RAM
-      cardEl.remove();
+      doc.addImage(imgData, 'PNG', 0, 0, 75, 100);
     }
 
     doc.save(pdfScope === 'all' ? 'កាតសិស្សសរុបរួម.pdf' : `កាតសិស្ស_ថ្នាក់_${pdfClass}.pdf`);
-    tempContainer.remove();
     setShowPdfModal(false);
     setPdfProgress(0);
   };
@@ -2448,46 +2470,11 @@ export default function AdminPanel({
                     if (!cardEl) return;
                     setIsDownloadingSingle(true);
                     try {
-                      // Ensure all images are fully loaded before rendering
-                      const images = cardEl.getElementsByTagName('img');
-                      const promises = Array.from(images).map(img => {
-                        if (img.complete) return Promise.resolve();
-                        return new Promise((resolve) => {
-                          img.onload = resolve;
-                          img.onerror = resolve;
-                        });
-                      });
-                      await Promise.all(promises);
-
-                      // Dynamically calculate scale to match background image's original high resolution
-                      let downloadScale = 3; // Standard fallback scale (375 * 3 = 1125px width) for crystal-clarity
-                      const bgImgUrl = dbState.card_layout.bgImage;
-                      if (bgImgUrl) {
-                        await new Promise<void>((resolve) => {
-                          const bgImg = new Image();
-                          bgImg.crossOrigin = 'anonymous';
-                          bgImg.onload = () => {
-                            if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
-                              downloadScale = bgImg.naturalWidth / 375;
-                            }
-                            resolve();
-                          };
-                          bgImg.onerror = () => {
-                            resolve();
-                          };
-                          bgImg.src = bgImgUrl;
-                        });
-                      }
-
-                      const canvas = await html2canvasSafe(cardEl, {
-                        scale: downloadScale, // matches original layout perfectly
-                        useCORS: true,
-                        backgroundColor: null,
-                        logging: false
-                      });
-                      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                      // គូរ Canvas ដោយផ្ទាល់ — original bg & photo resolution
+                      const canvas  = await drawCardToCanvas(previewStudent, dbState.card_layout);
+                      const imgData = canvas.toDataURL('image/png');
                       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [75, 100] });
-                      doc.addImage(imgData, 'JPEG', 0, 0, 75, 100);
+                      doc.addImage(imgData, 'PNG', 0, 0, 75, 100);
                       doc.save(`កាតសិស្ស_${previewStudent.id}_${previewStudent.name}.pdf`);
                     } catch (err) {
                       console.error('Download card copy error:', err);
