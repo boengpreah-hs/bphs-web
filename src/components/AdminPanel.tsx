@@ -22,6 +22,7 @@ import {
   ChevronRight,
   UserPlus,
   Download,
+  Upload,
   X,
   AlignLeft,
   ShieldAlert,
@@ -471,6 +472,96 @@ export default function AdminPanel({
   const [showExcelExport, setShowExcelExport] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showAdminSettings, setShowAdminSettings] = useState(false);
+  const [isExportingBak, setIsExportingBak] = useState(false);
+  const [isImportingBak, setIsImportingBak] = useState(false);
+
+  // Download export snapshot file
+  const handleExportFullBackup = async () => {
+    setIsExportingBak(true);
+    try {
+      const res = await fetch('/api/backup-full');
+      const json = await res.json();
+      if (json.status === 'success' && json.backup) {
+        const payloadStr = JSON.stringify(json.backup, null, 2);
+        const fileName = `វិទ្យាល័យបឹងព្រះ_Backup_សរុបរួម_${new Date().toISOString().split('T')[0]}.schoolbak`;
+        
+        const blob = new Blob([payloadStr], { type: 'application/octet-stream' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+        
+        alert('ជោគជ័យ៖ ឯកសារបម្រុងទុកទិន្នន័យ និងរូបភាពសរុបរួមត្រូវបានទាញយកដោយជោគជ័យ!');
+      } else {
+        alert('បរាជ័យ៖ មិនអាចបង្កើតឯកសារបម្រុងទុកទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('បរាជ័យ៖ កំហុសបណ្តាញ ឬប្រព័ន្ធ៖ ' + (err.message || err));
+    } finally {
+      setIsExportingBak(false);
+    }
+  };
+
+  // Import snapshot backup file
+  const handleImportFullBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const confirmRestore = window.confirm(
+      "ព្រមាន៖ ការនាំចូលឯកសារបម្រុងទុក (Backup) នេះ នឹងជំនួសទិន្នន័យសិស្សានុសិស្ស ប្លង់ការចនា រូបភាព និងការបង្ហោះទាំងអស់នៅក្នុងប្រព័ន្ធបច្ចុប្បន្នទាំងស្រុង! តើអ្នកពិតជាចង់បន្តមែនទេ?"
+    );
+    if (!confirmRestore) {
+      e.target.value = '';
+      return;
+    }
+
+    setIsImportingBak(true);
+    try {
+      const fileReader = new FileReader();
+      fileReader.onload = async (event) => {
+        try {
+          const content = event.target?.result as string;
+          const parsed = JSON.parse(content);
+          
+          if (!parsed.backupVersion || !parsed.db) {
+            alert('បរាជ័យ៖ ទម្រង់ឯកសារបម្រុងទុកមិនត្រឹមត្រូវទេ!');
+            setIsImportingBak(false);
+            return;
+          }
+
+          const res = await fetch('/api/restore-full', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ backup: parsed })
+          });
+          
+          const json = await res.json();
+          if (json.status === 'success') {
+            alert('ជោគជ័យ៖ ទិន្នន័យ និងរូបភាពទាំងអស់ត្រូវបានស្តារឡើងវិញដោយជោគជ័យ! ប្រព័ន្ធនឹងរៀបចំដំណើរការឡើងវិញភ្លាមៗ។');
+            window.location.reload();
+          } else {
+            alert('បរាជ័យ៖ មិនអាចបញ្ចូលទិន្នន័យបានទេ៖ ' + (json.error || 'Unknown error'));
+          }
+        } catch (err: any) {
+          console.error(err);
+          alert('បរាជ័យ៖ មិនអាចអាន ឬបំប្លែងព័ត៌មាននៅក្នុងឯកសារបានទេ។ ' + (err.message || err));
+        } finally {
+          setIsImportingBak(false);
+        }
+      };
+      
+      fileReader.readAsText(file);
+    } catch (err: any) {
+      console.error(err);
+      alert('បរាជ័យ៖ មានកំហុសក្នុងការអានឯកសារ៖ ' + (err.message || err));
+      setIsImportingBak(false);
+    }
+  };
 
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
@@ -1447,6 +1538,63 @@ export default function AdminPanel({
             >
               <ShieldAlert className="w-4 h-4 text-amber-400" /> គ្រប់គ្រងគណនី Admin
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 1.5. BACKUP & IMPORT LOCAL snapshot FILE */}
+      <div className="bg-white p-5 rounded-xl shadow-xs border-t-4 border-indigo-600 space-y-4 font-battambang">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center font-moul">
+          <Upload className="w-5 h-5 mr-1.5 text-indigo-600 animate-bounce" />
+          ប្រព័ន្ធរក្សាទុក និងនាំចូលទិន្នន័យសរុបរួម (Full Backup & Import System)
+        </h3>
+        <p className="text-xs text-gray-500 font-medium leading-relaxed">
+          មុខងារការពារការបាត់បង់ទិន្នន័យ៖ អ្នកអាចទាញយក ឬស្តារឡើងវិញនូវរាល់ទិន្នន័យទាំងអស់ រួមមាន៖ បញ្ជីឈ្មោះសិស្ស, រូបថតសិស្ស (3x4), ប្លង់រៀបចំកាតសិស្ស, រូបភាពផ្ទៃក្រោយកាត, Logo សាលា, រូបភាព سلាយ (Home Slides) និងរាល់ការបង្ហោះទាំងអស់ ទៅជាឯកសារតែមួយគត់នៅលើកុំព្យូទ័ររបស់អ្នក ដើម្បីងាយស្រួលផ្ទេរ ឬស្តារឡើងវិញគ្រប់ពេលវេលា!
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Backup Button Container */}
+          <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 space-y-3">
+            <span className="font-bold text-[#0f2c59] block text-xs">១. ទាញយកឯកសារបម្រុងទុក (Export Backup File)</span>
+            <p className="text-[11px] text-gray-400">
+              រក្សាទុកទិន្នន័យសាលា និងរូបភាពទាំងអស់ទៅជាឯកសារគំរូ <code className="bg-white px-1 py-0.5 border rounded text-rose-500 font-mono">.schoolbak</code>។
+            </p>
+            <button
+              type="button"
+              onClick={handleExportFullBackup}
+              disabled={isExportingBak}
+              className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:bg-gray-400"
+            >
+              <Download className="w-4 h-4" />
+              {isExportingBak ? 'កំពុងចងក្រងទិន្នន័យ...' : 'ទាញយក Backup សរុបរួម (.schoolbak)'}
+            </button>
+          </div>
+
+          {/* Import Button Container */}
+          <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 space-y-3">
+            <span className="font-bold text-emerald-800 block text-xs">២. នាំចូលឯកសារពី Backup (Import / Restore Backup)</span>
+            <p className="text-[11px] text-gray-400">
+              ជ្រើសរើសឯកសារ <code className="bg-white px-1 py-0.5 border rounded text-rose-500 font-mono">.schoolbak</code> ដែលអ្នកបានទាញយក ដើម្បីស្តារទិន្នន័យឡើងវិញ។ <span className="text-red-500 font-bold">*បញ្ជាក់៖ វានឹងជំនួសទិន្នន័យបច្ចុប្បន្ន!</span>
+            </p>
+            
+            <div className="flex items-center gap-2">
+              <label className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer select-none">
+                <Upload className="w-4 h-4" />
+                <span>ជ្រើសរើសឯកសារដើម្បីស្តារ</span>
+                <input
+                  type="file"
+                  accept=".schoolbak,.json"
+                  onChange={handleImportFullBackup}
+                  disabled={isImportingBak}
+                  className="hidden"
+                />
+              </label>
+              {isImportingBak && (
+                <span className="text-xs text-emerald-600 font-bold animate-pulse">
+                  កំពុងស្តារឡើងវិញ...
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
