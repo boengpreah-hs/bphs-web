@@ -7,6 +7,7 @@ import React, { useRef, useState } from 'react';
 import { Search, IdCard, Users, User, Phone, MapPin, School, Download, Printer, Save, X } from 'lucide-react';
 import { DBState, Student } from '../types';
 import { html2canvasSafe } from '../utils';
+import { jsPDF } from 'jspdf';
 
 interface StudentSearchProps {
   dbState: DBState;
@@ -69,13 +70,11 @@ export default function StudentSearchTab({
         backgroundColor: null,
         logging: false
       });
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const link = document.createElement('a');
-      link.href = imgData;
-      link.download = `កាតសិស្ស_${searchedStudent.id}_${searchedStudent.name}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [75, 100] });
+      doc.addImage(imgData, 'JPEG', 0, 0, 75, 100);
+      doc.save(`កាតសិស្ស_${searchedStudent.id}_${searchedStudent.name}.pdf`);
     } catch (err) {
       console.error('Download card error:', err);
     } finally {
@@ -362,7 +361,7 @@ export default function StudentSearchTab({
                 </div>
               </div>
 
-              {/* Download button below card (Admin only) */}
+              {/* Download button below card - Only shown to Admin, hidden for general Guests / Visitors */}
               {isAdmin && (
                 <div className="mt-4 flex gap-3 w-full justify-center">
                   <button
@@ -371,9 +370,9 @@ export default function StudentSearchTab({
                     className={`px-4 py-2 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition font-battambang cursor-pointer shadow-md ${
                       isDownloading ? 'bg-amber-400 cursor-not-allowed opacity-75 animate-pulse' : 'bg-amber-600 hover:bg-amber-500 active:scale-95'
                     }`}
-                    title="ទាញយកជាជារូបភាពទំហំដើម"
+                    title="ទាញយកកាតសិស្សជាឯកសារ PDF កម្រិតច្បាស់ដើម"
                   >
-                    <Download className="w-4 h-4" /> {isDownloading ? 'កំពុងទាញយក...' : 'ទាញយកកាត'}
+                    <Download className="w-4 h-4" /> {isDownloading ? 'កំពុងទាញយក...' : 'ទាញយកកាតជា PDF'}
                   </button>
                 </div>
               )}
