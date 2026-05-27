@@ -993,6 +993,27 @@ export default function AdminPanel({
     tempContainer.style.left = '-9999px';
     document.body.appendChild(tempContainer);
 
+    // Dynamically calculate PDF generation scale to match background image's original high resolution
+    let downloadScale = 4; // high-quality default fallback
+    const bgImgUrl = dbState.card_layout.bgImage;
+    if (bgImgUrl) {
+      setPdfStatusMsg('កំពុងគណនាទំហំផ្ទៃក្រោយដើម...');
+      await new Promise<void>((resolve) => {
+        const bgImg = new Image();
+        bgImg.crossOrigin = 'anonymous';
+        bgImg.onload = () => {
+          if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
+            downloadScale = bgImg.naturalWidth / 375;
+          }
+          resolve();
+        };
+        bgImg.onerror = () => {
+          resolve();
+        };
+        bgImg.src = bgImgUrl;
+      });
+    }
+
     for (let i = 0; i < targets.length; i++) {
       const student = targets[i];
       const prog = Math.round(((i + 1) / targets.length) * 100);
@@ -1040,8 +1061,8 @@ export default function AdminPanel({
         cardEl.appendChild(item);
       });
 
-      // Watermark
-      if (dbState.watermark.text) {
+      // Watermark (Hidden for Admin PDF downloads)
+      if (dbState.watermark.text && false) {
         const wmDiv = document.createElement('div');
         wmDiv.style.cssText = `
           position: absolute;
@@ -1067,7 +1088,7 @@ export default function AdminPanel({
       tempContainer.appendChild(cardEl);
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      const canvas = await html2canvasSafe(cardEl, { scale: 4, useCORS: true });
+      const canvas = await html2canvasSafe(cardEl, { scale: downloadScale, useCORS: true });
       const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
       if (i > 0) doc.addPage([75, 100], 'portrait');
