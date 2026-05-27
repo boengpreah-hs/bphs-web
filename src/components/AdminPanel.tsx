@@ -141,20 +141,30 @@ async function drawCardToCanvas(
     'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
   ];
 
-  // ២. Student Photo (contain, centered in slot)
+  // ២. Student Photo (cover, matching layout designer aspect preservation)
   if (photoImg && visibleFields.includes('photo')) {
     const pl = parseFloat(layout.photo?.left   || '25px');
     const pt = parseFloat(layout.photo?.top    || '115px');
     const pw = parseFloat(layout.photo?.width  || '120px');
     const ph = parseFloat(layout.photo?.height || '160px');
+    const slotX = pl * scaleX;
+    const slotY = pt * scaleY;
     const slotW = pw * scaleX;
     const slotH = ph * scaleY;
-    const ratio = Math.min(slotW / photoImg.naturalWidth, slotH / photoImg.naturalHeight);
-    const dw = photoImg.naturalWidth  * ratio;
-    const dh = photoImg.naturalHeight * ratio;
-    const dx = pl * scaleX + (slotW - dw) / 2;
-    const dy = pt * scaleY + (slotH - dh) / 2;
-    ctx.drawImage(photoImg, dx, dy, dw, dh);
+
+    const imageRatio = photoImg.naturalWidth / photoImg.naturalHeight;
+    const slotRatio = slotH > 0 ? (slotW / slotH) : 0.75;
+    let sx = 0, sy = 0, sWidth = photoImg.naturalWidth, sHeight = photoImg.naturalHeight;
+
+    if (imageRatio > slotRatio) {
+      sWidth = photoImg.naturalHeight * slotRatio;
+      sx = (photoImg.naturalWidth - sWidth) / 2;
+    } else {
+      sHeight = photoImg.naturalWidth / slotRatio;
+      sy = (photoImg.naturalHeight - sHeight) / 2;
+    }
+
+    ctx.drawImage(photoImg, sx, sy, sWidth, sHeight, slotX, slotY, slotW, slotH);
   }
 
   // ៣. Text fields (Draw only the data value text directly)
@@ -1977,47 +1987,35 @@ export default function AdminPanel({
                       />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-0.5">ទំហំទទឹង (px)</label>
-                        <input
-                          type="text"
-                          value={dbState.card_layout.photo.width || '120px'}
-                          onChange={(e) => {
-                            const updated = { ...dbState.card_layout };
-                            updated.photo.width = e.target.value;
-                            onUpdateDB({ card_layout: updated });
-                          }}
-                          className="w-full p-1.5 border rounded text-black bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-0.5">ទំហំកម្ពស់ (px)</label>
-                        <input
-                          type="text"
-                          value={dbState.card_layout.photo.height || '160px'}
-                          onChange={(e) => {
-                            const updated = { ...dbState.card_layout };
-                            updated.photo.height = e.target.value;
-                            onUpdateDB({ card_layout: updated });
-                          }}
-                          className="w-full p-1.5 border rounded text-black bg-white"
-                        />
-                      </div>
+                    <div className="space-y-2">
+                       <label className="block text-[10px] text-gray-500 mb-1 font-bold">ទំហំទទឹងរូបថត (Photo Width) - {parseInt(dbState.card_layout.photo.width || '120')}px</label>
+                       <input
+                         type="range"
+                         min="50"
+                         max="250"
+                         value={parseInt(dbState.card_layout.photo.width || '120')}
+                         onChange={(e) => {
+                           const w = parseInt(e.target.value);
+                           const h = Math.round(w * (4 / 3)); // 3:4 aspect ratio locked to prevent warping!
+                           const updated = { ...dbState.card_layout };
+                           updated.photo.width = `${w}px`;
+                           updated.photo.height = `${h}px`;
+                           onUpdateDB({ card_layout: updated });
+                         }}
+                         className="w-full accent-amber-500 cursor-pointer"
+                       />
+                       <span className="block text-[10px] text-emerald-600 font-bold font-battambang">🔒 រក្សាទម្រង់សមាមាត្ររូបថត 3:4 (មិនឲ្យខូចទ្រង់ទ្រាយ) - កម្ពស់ {parseInt(dbState.card_layout.photo.height || '160')}px</span>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Simulated Live visual preview card frame - 30% Larger Visuals */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-50 py-10 px-4 rounded-2xl border-2 border-dashed border-amber-300 relative overflow-hidden" style={{ minHeight: '720px' }}>
-              <span className="block text-[11px] text-amber-700 font-bold mb-5 font-battambang uppercase tracking-wider text-center">
-                ✨ ចាប់អូសទាញ (Drag & Drop) ធាតុផ្ទាល់លើកាត និងតម្រឹមទីតាំងឱ្យបានស្អាត
-              </span>
+            {/* Simulated Live visual preview card frame - 50% Larger Visuals (scaled up) */}
+            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-50 py-10 px-4 rounded-2xl border-2 border-dashed border-amber-300 relative overflow-hidden" style={{ minHeight: '850px' }}>
               
-              <div className="relative overflow-visible flex items-center justify-center" style={{ width: '487.5px', height: '650px' }}>
-                <div style={{ transform: 'scale(1.3)', transformOrigin: 'center center' }} className="relative bg-white p-2 text-slate-800 rounded shadow-2xl border border-gray-250">
+              <div className="relative overflow-visible flex items-center justify-center" style={{ width: '562.5px', height: '750px' }}>
+                <div style={{ transform: 'scale(1.5)', transformOrigin: 'center center' }} className="relative text-slate-800 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
                   <div
                     id="designer-card-render"
                     className="student-card-size bg-white relative overflow-hidden"
