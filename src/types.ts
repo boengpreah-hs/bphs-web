@@ -44,6 +44,12 @@ export interface CardLayout {
   dob: Position;
   grade: Position;
   year: Position;
+  addressLocal?: Position;
+  addressRegion?: Position;
+  fatherName?: Position;
+  motherName?: Position;
+  issueDate?: Position;
+  visibleFields?: string[];
 }
 
 export interface WatermarkSettings {
