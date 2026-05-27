@@ -571,7 +571,7 @@ app.post('/api/restore-full', async (req, res) => {
         const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
           const buffer = Buffer.from(matches[2], 'base64');
-          const filePath = path.join(UPLOADS_DIR, filename);
+          const filePath = path.join(UPLOADS_DIR, path.basename(filename));
           fs.writeFileSync(filePath, buffer);
         }
       }
