@@ -44,7 +44,27 @@ export default function StudentSearchTab({
       });
       await Promise.all(promises);
 
+      // Dynamically calculate scale to match background image's original high resolution
+      let downloadScale = 3; // Standard fallback scale (375 * 3 = 1125px width) for crystal-clarity
+      if (layout.bgImage) {
+        await new Promise<void>((resolve) => {
+          const bgImg = new Image();
+          bgImg.crossOrigin = 'anonymous';
+          bgImg.onload = () => {
+            if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
+              downloadScale = bgImg.naturalWidth / 375;
+            }
+            resolve();
+          };
+          bgImg.onerror = () => {
+            resolve();
+          };
+          bgImg.src = layout.bgImage;
+        });
+      }
+
       const canvas = await html2canvasSafe(cardRef.current, {
+        scale: downloadScale, // matches original uploaded layout width perfectly
         useCORS: true,
         backgroundColor: null,
         logging: false
