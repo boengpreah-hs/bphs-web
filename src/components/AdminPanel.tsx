@@ -106,11 +106,11 @@ async function drawCardToCanvas(
   const bgImg    = layout.bgImage ? await loadImg(layout.bgImage) : null;
   const photoImg = student.photo  ? await loadImg(student.photo)  : null;
 
-  // Canvas size = naturalWidth of bg image (or 375*6 fallback)
+  // Canvas size - locked to a perfect high-resolution 3:4 aspect ratio matching the 375x500 HTML card designer!
   let cW: number, cH: number;
   if (bgImg && bgImg.naturalWidth > 0) {
-    cW = bgImg.naturalWidth;
-    cH = bgImg.naturalHeight;
+    cW = Math.max(bgImg.naturalWidth, 2250); // Minimum 2250px for high definition output (6x of 375px)
+    cH = Math.round((cW * 500) / 375);
   } else {
     cW = 375 * 6;
     cH = 500 * 6;
@@ -189,8 +189,10 @@ async function drawCardToCanvas(
     if (!visibleFields.includes(f.key)) return;
     const fCfg = f.cfg || { left: '165px', top: '150px', fontSize: '14' };
     const fs = parseFloat(fCfg.fontSize || '14') * scaleX;
-    const fx = parseFloat(fCfg.left     || '165px') * scaleX;
-    const fy = parseFloat(fCfg.top      || '150px') * scaleY;
+    
+    // Add 4px to left (matching px-1 browser offset) and 2px to top (matching CSS leading offset)
+    const fx = (parseFloat(fCfg.left || '165px') + 4) * scaleX;
+    const fy = (parseFloat(fCfg.top  || '150px') + 2) * scaleY;
 
     ctx.font      = `bold ${fs}px Battambang, sans-serif`;
     ctx.fillStyle = '#1e40af';
@@ -2012,7 +2014,7 @@ export default function AdminPanel({
             </div>
 
             {/* Simulated Live visual preview card frame - 50% Larger Visuals (scaled up) */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-50 py-10 px-4 rounded-2xl border-2 border-dashed border-amber-300 relative overflow-hidden" style={{ minHeight: '850px' }}>
+            <div className="lg:col-span-7 flex flex-col items-center justify-center relative" style={{ minHeight: '850px' }}>
               
               <div className="relative overflow-visible flex items-center justify-center" style={{ width: '562.5px', height: '750px' }}>
                 <div style={{ transform: 'scale(1.5)', transformOrigin: 'center center' }} className="relative text-slate-800 shadow-[0_25px_60px_rgba(0,0,0,0.35)]">
