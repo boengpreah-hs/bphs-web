@@ -18,6 +18,49 @@ interface StudentSearchProps {
   isAdmin?: boolean;
 }
 
+// Helper functions for Khmer Date generation and School keyword extraction
+const getSchoolKeyword = (title: string = 'វិទ្យាល័យបឹងព្រះ') => {
+  if (!title) return 'បឹងព្រះ';
+  let clean = title;
+  const prefixes = ['វិទ្យាល័យ', 'អនុវិទ្យាល័យ', 'សាលាបឋមសិក្សា', 'សាលា'];
+  for (const prefix of prefixes) {
+    if (clean.startsWith(prefix)) {
+      clean = clean.substring(prefix.length).trim();
+      break;
+    }
+  }
+  return clean || 'បឹងព្រះ';
+};
+
+const toKhmerNumber = (numStr: string) => {
+  const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+  return numStr.split('').map(char => {
+    const d = parseInt(char);
+    return isNaN(d) ? char : khmerDigits[d];
+  }).join('');
+};
+
+const getKhmerMonth = (monthIndex: number) => {
+  const months = [
+    'មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា',
+    'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'
+  ];
+  return months[monthIndex] || 'មករា';
+};
+
+const formatKhmerIssueDate = (schoolTitle: string = 'វិទ្យាល័យបឹងព្រះ', dateObj: Date = new Date()) => {
+  const keyword = getSchoolKeyword(schoolTitle);
+  const day = dateObj.getDate();
+  const month = dateObj.getMonth();
+  const year = dateObj.getFullYear();
+  
+  const khmerDay = toKhmerNumber(day < 10 ? `0${day}` : `${day}`);
+  const khmerMonth = getKhmerMonth(month);
+  const khmerYear = toKhmerNumber(`${year}`);
+  
+  return `${keyword} ថ្ងៃទី${khmerDay} ខែ${khmerMonth} ឆ្នាំ${khmerYear}`;
+};
+
 // ======================================================
 // drawCardToCanvas — គូរកាតសិស្សដោយផ្ទាល់ទៅ Canvas
 // ប្រើ naturalWidth/naturalHeight ដើម → 100% original resolution
@@ -34,7 +77,7 @@ function loadImg(src: string): Promise<HTMLImageElement | null> {
 }
 
 async function drawCardToCanvas(
-  student: { id: string; name: string; gender: string; dob: string; grade: string; photo?: string },
+  student: Student,
   layout: any,
   watermark?: { text?: string; size?: string; opacity?: string; angle?: string; color_r?: string; color_g?: string; color_b?: string },
   showWatermark = false
@@ -71,7 +114,12 @@ async function drawCardToCanvas(
   }
 
   // ២. Student Photo (contain, centered in slot)
-  if (photoImg) {
+  const visibleFields = layout.visibleFields || [
+    'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+    'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+  ];
+  
+  if (photoImg && visibleFields.includes('photo')) {
     const pl = parseFloat(layout.photo?.left   || '25px');
     const pt = parseFloat(layout.photo?.top    || '115px');
     const pw = parseFloat(layout.photo?.width  || '120px');
@@ -86,28 +134,33 @@ async function drawCardToCanvas(
     ctx.drawImage(photoImg, dx, dy, dw, dh);
   }
 
-  // ៣. Text fields
+  // ៣. Text fields - raw values only, NO labels
   ctx.textBaseline = 'top';
   const fields = [
-    { label: 'អត្តលេខ: ',         value: student.id,                          cfg: layout.id          },
-    { label: 'ឈ្មោះ: ',            value: student.name,                        cfg: layout.name        },
-    { label: 'ភេទ: ',              value: student.gender,                       cfg: layout.gender      },
-    { label: 'សញ្ជាតិ: ',          value: 'ខ្មែរ',                            cfg: layout.nationality },
-    { label: 'ថ្ងៃខែឆ្នាំកំណើត: ', value: student.dob,                          cfg: layout.dob         },
-    { label: 'ថ្នាក់ទី: ',          value: student.grade,                        cfg: layout.grade       },
-    { label: 'ឆ្នាំសិក្សា: ',       value: layout.academicYear || '2025-2026',  cfg: layout.year        },
+    { key: 'id',            value: student.id,                                                                         cfg: layout.id            },
+    { key: 'name',          value: student.name,                                                                       cfg: layout.name          },
+    { key: 'gender',        value: student.gender,                                                                     cfg: layout.gender        },
+    { key: 'nationality',   value: 'ខ្មែរ',                                                                           cfg: layout.nationality   },
+    { key: 'dob',           value: student.dob,                                                                        cfg: layout.dob           },
+    { key: 'grade',         value: student.grade,                                                                      cfg: layout.grade         },
+    { key: 'year',          value: layout.academicYear || '2025-2026',                                                 cfg: layout.year          },
+    { key: 'addressLocal',  value: student.village && student.commune ? `${student.village} ${student.commune}` : 'ភូមិដីថុយ ឃុំបឹងព្រះ',       cfg: layout.addressLocal  },
+    { key: 'addressRegion', value: student.district && student.province ? `${student.district} ${student.province}` : 'ស្រុកបាភ្នំ ខេត្តព្រៃវែង', cfg: layout.addressRegion },
+    { key: 'fatherName',    value: student.fatherName || 'យាប ឆាន',                                                  cfg: layout.fatherName    },
+    { key: 'motherName',    value: student.motherName || 'ញិល នាប',                                                  cfg: layout.motherName    },
+    { key: 'issueDate',     value: formatKhmerIssueDate('វិទ្យាល័យបឹងព្រះ'),                                             cfg: layout.issueDate     },
   ];
+
   fields.forEach((f) => {
-    const fs = parseFloat(f.cfg?.fontSize || '14') * scaleX;
-    const fx = parseFloat(f.cfg?.left     || '165px') * scaleX;
-    const fy = parseFloat(f.cfg?.top      || '150px') * scaleY;
-    ctx.font      = `${fs}px Battambang, sans-serif`;
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillText(f.label, fx, fy);
-    const labelW = ctx.measureText(f.label).width;
+    if (!visibleFields.includes(f.key)) return;
+    const fCfg = f.cfg || { left: '165px', top: '150px', fontSize: '14' };
+    const fs = parseFloat(fCfg.fontSize || '14') * scaleX;
+    const fx = parseFloat(fCfg.left     || '165px') * scaleX;
+    const fy = parseFloat(fCfg.top      || '150px') * scaleY;
+    
     ctx.font      = `bold ${fs}px Battambang, sans-serif`;
     ctx.fillStyle = '#1e40af';
-    ctx.fillText(f.value || '', fx + labelW, fy);
+    ctx.fillText(f.value || '', fx, fy);
   });
 
   // ៤. Watermark
@@ -319,119 +372,78 @@ export default function StudentSearchTab({
                     style={cardBgStyle}
                   >
                   {/* Photo Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 overflow-hidden"
-                    style={{
-                      left: layout.photo.left,
-                      top: layout.photo.top,
-                      width: layout.photo.width || '120px',
-                      height: layout.photo.height || '160px',
-                    }}
-                  >
-                    <div className="w-full h-full bg-transparent flex items-center justify-center relative rounded-none">
-                      {searchedStudent.photo ? (
-                        <img
-                          id="card-photo"
-                          src={searchedStudent.photo}
-                          alt="Student"
-                          className="w-full h-full object-cover rounded-none"
-                          referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
+                  {(() => {
+                    const visibleFields = layout.visibleFields || [
+                      'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                      'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                    ];
+                    if (!visibleFields.includes('photo')) return null;
+                    return (
+                      <div
+                        className="absolute draggable-field font-battambang select-none z-10 overflow-hidden"
+                        style={{
+                          left: layout.photo.left,
+                          top: layout.photo.top,
+                          width: layout.photo.width || '120px',
+                          height: layout.photo.height || '160px',
+                        }}
+                      >
+                        <div className="w-full h-full bg-transparent flex items-center justify-center relative rounded-none">
+                          {searchedStudent.photo ? (
+                            <img
+                              id="card-photo"
+                              src={searchedStudent.photo}
+                              alt="Student"
+                              className="w-full h-full object-cover rounded-none"
+                              referrerPolicy="no-referrer"
+                              crossOrigin="anonymous"
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                  {/* ID Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 font-bold whitespace-nowrap"
-                    style={{
-                      left: layout.id.left,
-                      top: layout.id.top,
-                      fontSize: `${layout.id.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    អត្តលេខ: <span className="text-blue-800">{searchedStudent.id}</span>
-                  </div>
+                  {/* Text fields - raw values only, NO labels */}
+                  {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year', 'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'].map((key) => {
+                    const visibleFields = layout.visibleFields || [
+                      'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                      'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                    ];
+                    if (!visibleFields.includes(key)) return null;
 
-                  {/* Name Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 font-bold whitespace-nowrap"
-                    style={{
-                      left: layout.name.left,
-                      top: layout.name.top,
-                      fontSize: `${layout.name.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    ឈ្មោះ: <span className="text-blue-800">{searchedStudent.name}</span>
-                  </div>
+                    const fConfig = layout[key] || { left: '165px', top: '150px', fontSize: '14' };
+                    
+                    const value = {
+                      id: searchedStudent.id,
+                      name: searchedStudent.name,
+                      gender: searchedStudent.gender,
+                      nationality: 'ខ្មែរ',
+                      dob: searchedStudent.dob,
+                      grade: searchedStudent.grade,
+                      year: layout.academicYear || '2025-2026',
+                      addressLocal: searchedStudent.village && searchedStudent.commune ? `${searchedStudent.village} ${searchedStudent.commune}` : 'ភូមិដីថុយ ឃុំបឹងព្រះ',
+                      addressRegion: searchedStudent.district && searchedStudent.province ? `${searchedStudent.district} ${searchedStudent.province}` : 'ស្រុកបាភ្នំ ខេត្តព្រៃវែង',
+                      fatherName: searchedStudent.fatherName || 'យាប ឆាន',
+                      motherName: searchedStudent.motherName || 'ញិល នាប',
+                      issueDate: formatKhmerIssueDate('វិទ្យាល័យបឹងព្រះ')
+                    }[key];
 
-                  {/* Gender Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 whitespace-nowrap font-bold"
-                    style={{
-                      left: layout.gender.left,
-                      top: layout.gender.top,
-                      fontSize: `${layout.gender.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    ភេទ: <span className="text-blue-800">{searchedStudent.gender}</span>
-                  </div>
-
-                  {/* Nationality */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 whitespace-nowrap font-bold"
-                    style={{
-                      left: layout.nationality.left,
-                      top: layout.nationality.top,
-                      fontSize: `${layout.nationality.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    សញ្ជាតិ: <span className="text-blue-800">ខ្មែរ</span>
-                  </div>
-
-                  {/* DOB Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 whitespace-nowrap font-bold"
-                    style={{
-                      left: layout.dob.left,
-                      top: layout.dob.top,
-                      fontSize: `${layout.dob.fontSize || '13'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    ថ្ងៃខែឆ្នាំកំណើត: <span className="text-blue-800">{searchedStudent.dob}</span>
-                  </div>
-
-                  {/* Grade Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 whitespace-nowrap font-bold"
-                    style={{
-                      left: layout.grade.left,
-                      top: layout.grade.top,
-                      fontSize: `${layout.grade.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    ថ្នាក់ទី: <span className="text-blue-800">{searchedStudent.grade}</span>
-                  </div>
-
-                  {/* Academic Year Field */}
-                  <div
-                    className="absolute draggable-field font-battambang select-none z-10 whitespace-nowrap font-bold"
-                    style={{
-                      left: layout.year.left,
-                      top: layout.year.top,
-                      fontSize: `${layout.year.fontSize || '14'}px`,
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    ឆ្នាំសិក្សា: <span className="text-blue-800">{layout.academicYear || '2025-2026'}</span>
-                  </div>
+                    return (
+                      <div
+                        key={key}
+                        className="absolute draggable-field font-battambang select-none z-10 font-bold whitespace-nowrap text-blue-800"
+                        style={{
+                          left: fConfig.left || '165px',
+                          top: fConfig.top || '150px',
+                          fontSize: `${fConfig.fontSize || '14'}px`,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {value}
+                      </div>
+                    );
+                  })}
 
                   {/* Anti-copy Watermark Overlay (Standard matching exactly) */}
                   {wm.text && !isAdmin && (
