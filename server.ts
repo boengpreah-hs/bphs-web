@@ -511,6 +511,82 @@ app.post('/api/database', async (req, res) => {
   res.json({ status: 'success', data: updated });
 });
 
+// Full Backup Endpoint to compile database state + physical upload assets into one raw payload
+app.get('/api/backup-full', (req, res) => {
+  try {
+    const dbState = getDBState();
+    const uploadsMap: Record<string, string> = {};
+
+    if (fs.existsSync(UPLOADS_DIR)) {
+      const files = fs.readdirSync(UPLOADS_DIR);
+      for (const file of files) {
+        const filePath = path.join(UPLOADS_DIR, file);
+        if (fs.statSync(filePath).isFile()) {
+          const fileBuffer = fs.readFileSync(filePath);
+          const extension = path.extname(file).toLowerCase();
+          let mimeType = 'image/jpeg';
+          if (extension === '.png') mimeType = 'image/png';
+          else if (extension === '.gif') mimeType = 'image/gif';
+          else if (extension === '.svg') mimeType = 'image/svg+xml';
+          else if (extension === '.pdf') mimeType = 'application/pdf';
+          
+          uploadsMap[file] = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+        }
+      }
+    }
+
+    const backupPayload = {
+      backupVersion: "1.0",
+      generatedAt: new Date().toISOString(),
+      schoolTitle: dbState.about_school?.title || "វិទ្យាល័យបឹងព្រះ",
+      db: dbState,
+      uploads: uploadsMap
+    };
+
+    res.json({ status: 'success', backup: backupPayload });
+  } catch (err: any) {
+    console.error('[Backup Error]:', err);
+    res.status(500).json({ status: 'error', error: err.message || 'Failed to assemble full backup file' });
+  }
+});
+
+// Full Restore Endpoint to ingest backup payload, rebuild local uploads directory, and sync state
+app.post('/api/restore-full', async (req, res) => {
+  try {
+    const { backup } = req.body;
+    if (!backup || !backup.db) {
+      return res.status(400).json({ status: 'error', error: 'Invalid backup payload format' });
+    }
+
+    const importedDB = backup.db;
+    const importedUploads = backup.uploads || {};
+
+    // Restore uploads on disk
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+
+    for (const [filename, base64Data] of Object.entries(importedUploads)) {
+      if (typeof base64Data === 'string' && base64Data.startsWith('data:')) {
+        const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const buffer = Buffer.from(matches[2], 'base64');
+          const filePath = path.join(UPLOADS_DIR, filename);
+          fs.writeFileSync(filePath, buffer);
+        }
+      }
+    }
+
+    // Overwrite the database state with the imported data
+    await saveDBState(importedDB);
+
+    res.json({ status: 'success', message: 'Database and assets synchronized successfully' });
+  } catch (err: any) {
+    console.error('[Restore Error]:', err);
+    res.status(500).json({ status: 'error', error: err.message || 'Failed to process snapshot restore' });
+  }
+});
+
 // Post action: upload file or base64 photo
 // This is the CRITICAL performance handler for quick image uploads!
 app.post('/api/upload', (req, res) => {
