@@ -113,7 +113,7 @@ async function drawCardToCanvas(
     ctx.fillRect(0, 0, cW, cH);
   }
 
-  // ២. Student Photo (contain, centered in slot)
+  // ២. Student Photo (cover, matching layout designer aspect preservation)
   const visibleFields = layout.visibleFields || [
     'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
     'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
@@ -124,14 +124,24 @@ async function drawCardToCanvas(
     const pt = parseFloat(layout.photo?.top    || '115px');
     const pw = parseFloat(layout.photo?.width  || '120px');
     const ph = parseFloat(layout.photo?.height || '160px');
+    const slotX = pl * scaleX;
+    const slotY = pt * scaleY;
     const slotW = pw * scaleX;
     const slotH = ph * scaleY;
-    const ratio = Math.min(slotW / photoImg.naturalWidth, slotH / photoImg.naturalHeight);
-    const dw = photoImg.naturalWidth  * ratio;
-    const dh = photoImg.naturalHeight * ratio;
-    const dx = pl * scaleX + (slotW - dw) / 2;
-    const dy = pt * scaleY + (slotH - dh) / 2;
-    ctx.drawImage(photoImg, dx, dy, dw, dh);
+
+    const imageRatio = photoImg.naturalWidth / photoImg.naturalHeight;
+    const slotRatio = slotH > 0 ? (slotW / slotH) : 0.75;
+    let sx = 0, sy = 0, sWidth = photoImg.naturalWidth, sHeight = photoImg.naturalHeight;
+
+    if (imageRatio > slotRatio) {
+      sWidth = photoImg.naturalHeight * slotRatio;
+      sx = (photoImg.naturalWidth - sWidth) / 2;
+    } else {
+      sHeight = photoImg.naturalWidth / slotRatio;
+      sy = (photoImg.naturalHeight - sHeight) / 2;
+    }
+
+    ctx.drawImage(photoImg, sx, sy, sWidth, sHeight, slotX, slotY, slotW, slotH);
   }
 
   // ៣. Text fields - raw values only, NO labels
