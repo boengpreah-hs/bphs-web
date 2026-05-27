@@ -87,8 +87,8 @@ async function drawCardToCanvas(
 
   let cW: number, cH: number;
   if (bgImg && bgImg.naturalWidth > 0) {
-    cW = bgImg.naturalWidth;
-    cH = bgImg.naturalHeight;
+    cW = Math.max(bgImg.naturalWidth, 2250); // Minimum 2250px for high definition output (6x of 375px)
+    cH = Math.round((cW * 500) / 375);
   } else {
     cW = 375 * 6;
     cH = 500 * 6;
@@ -165,8 +165,10 @@ async function drawCardToCanvas(
     if (!visibleFields.includes(f.key)) return;
     const fCfg = f.cfg || { left: '165px', top: '150px', fontSize: '14' };
     const fs = parseFloat(fCfg.fontSize || '14') * scaleX;
-    const fx = parseFloat(fCfg.left     || '165px') * scaleX;
-    const fy = parseFloat(fCfg.top      || '150px') * scaleY;
+    
+    // Add 4px to left (matching px-1 browser offset) and 2px to top (matching CSS leading offset)
+    const fx = (parseFloat(fCfg.left || '165px') + 4) * scaleX;
+    const fy = (parseFloat(fCfg.top  || '150px') + 2) * scaleY;
     
     ctx.font      = `bold ${fs}px Battambang, sans-serif`;
     ctx.fillStyle = '#1e40af';
