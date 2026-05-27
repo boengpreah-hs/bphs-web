@@ -843,13 +843,12 @@ export default function AdminPanel({
 
     try {
       const base64 = await fileToBase64(file);
-      // Background should be sharp but webp/jpeg compressed to under 120KB
-      const compressed = await compressImage(base64, 800, 1060, 0.8);
+      const extension = file.name.split('.').pop() || 'jpg';
       
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: compressed, name: 'card_bg', ext: 'jpg' })
+        body: JSON.stringify({ file: base64, name: 'card_bg', ext: extension })
       });
       const resData = await response.json();
       if (resData.status === 'success') {
@@ -2486,13 +2485,10 @@ export default function AdminPanel({
                         backgroundColor: null,
                         logging: false
                       });
-                      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                      const link = document.createElement('a');
-                      link.href = imgData;
-                      link.download = `កាតសិស្ស_${previewStudent.id}_${previewStudent.name}.jpg`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [75, 100] });
+                      doc.addImage(imgData, 'JPEG', 0, 0, 75, 100);
+                      doc.save(`កាតសិស្ស_${previewStudent.id}_${previewStudent.name}.pdf`);
                     } catch (err) {
                       console.error('Download card copy error:', err);
                       alert('កំហុសក្នុងការទាញយកកាត៖ ' + err);
@@ -2503,10 +2499,10 @@ export default function AdminPanel({
                   className={`p-1.5 px-3.5 text-white rounded-md text-xs font-bold flex items-center gap-1 transition-all duration-150 cursor-pointer select-none ${
                     isDownloadingSingle ? 'bg-amber-400 cursor-not-allowed opacity-75 animate-pulse' : 'bg-amber-600 hover:bg-amber-500 active:scale-95'
                   }`}
-                  title="ទាញយកជាជារូបភាពទំហំដើម"
+                  title="ទាញយកជា PDF កម្រិតច្បាស់ដើម"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  {isDownloadingSingle ? 'កំពុងទាញយក...' : 'ទាញយក'}
+                  {isDownloadingSingle ? 'កំពុងទាញយក...' : 'ទាញយកជា PDF'}
                 </button>
                 <button
                   onClick={() => setPreviewStudent(null)}
