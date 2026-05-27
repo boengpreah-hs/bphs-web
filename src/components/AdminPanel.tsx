@@ -1949,15 +1949,27 @@ export default function AdminPanel({
                   {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'].map((key) => {
                     const currentLayout = localLayout || dbState.card_layout;
                     const fConfig = (currentLayout as any)[key];
-                    const labels: any = {
-                      id: 'អត្តលេខ: 001',
-                      name: 'ឈ្មោះ: ស៊ន សុភ័ក្ត្រ',
-                      gender: 'ភេទ: ប្រុស',
-                      nationality: 'សញ្ជាតិ: ខ្មែរ',
-                      dob: 'ថ្ងៃកំណើត: ១៥-មករា-២០០៨',
-                      grade: 'ថ្នាក់ទី: ១២A',
-                      year: `ឆ្នាំសិក្សា: ${currentLayout.academicYear}`,
-                    };
+                    
+                    const label = {
+                      id: 'អត្តលេខ: ',
+                      name: 'ឈ្មោះ: ',
+                      gender: 'ភេទ: ',
+                      nationality: 'សញ្ជាតិ: ',
+                      dob: 'ថ្ងៃខែឆ្នាំកំណើត: ',
+                      grade: 'ថ្នាក់ទី: ',
+                      year: 'ឆ្នាំសិក្សា: ',
+                    }[key];
+
+                    const value = {
+                      id: '001',
+                      name: 'ស៊ន សុភ័ក្ត្រ',
+                      gender: 'ប្រុស',
+                      nationality: 'ខ្មែរ',
+                      dob: '១៥-មករា-២០០៨',
+                      grade: '១២A',
+                      year: currentLayout.academicYear || '2025-2026',
+                    }[key];
+
                     const isSelected = selectedFields.includes(key) || selectedField === key;
                     return (
                       <div
@@ -1987,7 +1999,7 @@ export default function AdminPanel({
                           lineHeight: 1.2,
                         }}
                       >
-                        {labels[key]}
+                        {label}<span className="text-blue-800">{value}</span>
                       </div>
                     );
                   })}
@@ -2427,7 +2439,28 @@ export default function AdminPanel({
                       });
                       await Promise.all(promises);
 
+                      // Dynamically calculate scale to match background image's original high resolution
+                      let downloadScale = 3; // Standard fallback scale (375 * 3 = 1125px width) for crystal-clarity
+                      const bgImgUrl = dbState.card_layout.bgImage;
+                      if (bgImgUrl) {
+                        await new Promise<void>((resolve) => {
+                          const bgImg = new Image();
+                          bgImg.crossOrigin = 'anonymous';
+                          bgImg.onload = () => {
+                            if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
+                              downloadScale = bgImg.naturalWidth / 375;
+                            }
+                            resolve();
+                          };
+                          bgImg.onerror = () => {
+                            resolve();
+                          };
+                          bgImg.src = bgImgUrl;
+                        });
+                      }
+
                       const canvas = await html2canvasSafe(cardEl, {
+                        scale: downloadScale, // matches original layout perfectly
                         useCORS: true,
                         backgroundColor: null,
                         logging: false
@@ -2505,18 +2538,30 @@ export default function AdminPanel({
                   ) : null}
                 </div>
 
-                {/* Text fields */}
+                {/* Text fields matching StudentSearchTab exactly */}
                 {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'].map((key) => {
                   const fConfig = (dbState?.card_layout as any)?.[key] || { left: '165px', top: '150px', fontSize: '14' };
-                  const labels: any = {
-                    id: `អត្តលេខ: ${previewStudent.id}`,
-                    name: `ឈ្មោះ: ${previewStudent.name}`,
-                    gender: `ភេទ: ${previewStudent.gender}`,
-                    nationality: 'សញ្ជាតិ: ខ្មែរ',
-                    dob: `ថ្ងៃកំណើត: ${previewStudent.dob}`,
-                    grade: `ថ្នាក់ទី: ${previewStudent.grade}`,
-                    year: `ឆ្នាំសិក្សា: ${dbState?.card_layout?.academicYear || '2025-2026'}`,
-                  };
+                  
+                  const label = {
+                    id: 'អត្តលេខ: ',
+                    name: 'ឈ្មោះ: ',
+                    gender: 'ភេទ: ',
+                    nationality: 'សញ្ជាតិ: ',
+                    dob: 'ថ្ងៃខែឆ្នាំកំណើត: ',
+                    grade: 'ថ្នាក់ទី: ',
+                    year: 'ឆ្នាំសិក្សា: ',
+                  }[key];
+
+                  const value = {
+                    id: previewStudent.id,
+                    name: previewStudent.name,
+                    gender: previewStudent.gender,
+                    nationality: 'ខ្មែរ',
+                    dob: previewStudent.dob,
+                    grade: previewStudent.grade,
+                    year: dbState?.card_layout?.academicYear || '2025-2026',
+                  }[key];
+
                   return (
                     <div
                       key={key}
@@ -2528,13 +2573,13 @@ export default function AdminPanel({
                         lineHeight: 1.2,
                       }}
                     >
-                      {labels[key]}
+                      {label}<span className="text-blue-800">{value}</span>
                     </div>
                   );
                 })}
 
-                {/* Watermark Overlay if defined */}
-                {dbState.watermark.text && (
+                {/* Watermark Overlay hidden for Admin */}
+                {dbState.watermark.text && false && (
                   <div
                     className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden font-moul text-center"
                     style={{
