@@ -3,11 +3,133 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Search, IdCard, Users, User, Phone, MapPin, School, Download, Printer, Save, X } from 'lucide-react';
 import { DBState, Student } from '../types';
-import { html2canvasSafe } from '../utils';
 import { jsPDF } from 'jspdf';
+
+interface StudentSearchProps {
+  dbState: DBState;
+  onZoomImage: (src: string) => void;
+  publicSearchInput: string;
+  setPublicSearchInput: (val: string) => void;
+  searchedStudent: Student | null;
+  onSearch: (q: string) => void;
+  isAdmin?: boolean;
+}
+
+// ======================================================
+// drawCardToCanvas — គូរកាតសិស្សដោយផ្ទាល់ទៅ Canvas
+// ប្រើ naturalWidth/naturalHeight ដើម → 100% original resolution
+// ======================================================
+function loadImg(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+async function drawCardToCanvas(
+  student: { id: string; name: string; gender: string; dob: string; grade: string; photo?: string },
+  layout: any,
+  watermark?: { text?: string; size?: string; opacity?: string; angle?: string; color_r?: string; color_g?: string; color_b?: string },
+  showWatermark = false
+): Promise<HTMLCanvasElement> {
+  const bgImg    = layout.bgImage ? await loadImg(layout.bgImage) : null;
+  const photoImg = student.photo  ? await loadImg(student.photo)  : null;
+
+  let cW: number, cH: number;
+  if (bgImg && bgImg.naturalWidth > 0) {
+    cW = bgImg.naturalWidth;
+    cH = bgImg.naturalHeight;
+  } else {
+    cW = 375 * 6;
+    cH = 500 * 6;
+  }
+  const scaleX = cW / 375;
+  const scaleY = cH / 500;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = cW;
+  canvas.height = cH;
+  const ctx = canvas.getContext('2d')!;
+
+  // ១. Background
+  if (bgImg) {
+    const bx = parseFloat(layout.bgPositionX || '0') * scaleX;
+    const by = parseFloat(layout.bgPositionY || '0') * scaleY;
+    const bw = cW * (parseFloat(layout.bgSizeWidth  || '100') / 100);
+    const bh = cH * (parseFloat(layout.bgSizeHeight || '100') / 100);
+    ctx.drawImage(bgImg, bx, by, bw, bh);
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cW, cH);
+  }
+
+  // ២. Student Photo (contain, centered in slot)
+  if (photoImg) {
+    const pl = parseFloat(layout.photo?.left   || '25px');
+    const pt = parseFloat(layout.photo?.top    || '115px');
+    const pw = parseFloat(layout.photo?.width  || '120px');
+    const ph = parseFloat(layout.photo?.height || '160px');
+    const slotW = pw * scaleX;
+    const slotH = ph * scaleY;
+    const ratio = Math.min(slotW / photoImg.naturalWidth, slotH / photoImg.naturalHeight);
+    const dw = photoImg.naturalWidth  * ratio;
+    const dh = photoImg.naturalHeight * ratio;
+    const dx = pl * scaleX + (slotW - dw) / 2;
+    const dy = pt * scaleY + (slotH - dh) / 2;
+    ctx.drawImage(photoImg, dx, dy, dw, dh);
+  }
+
+  // ៣. Text fields
+  ctx.textBaseline = 'top';
+  const fields = [
+    { label: 'អត្តលេខ: ',         value: student.id,                          cfg: layout.id          },
+    { label: 'ឈ្មោះ: ',            value: student.name,                        cfg: layout.name        },
+    { label: 'ភេទ: ',              value: student.gender,                       cfg: layout.gender      },
+    { label: 'សញ្ជាតិ: ',          value: 'ខ្មែរ',                            cfg: layout.nationality },
+    { label: 'ថ្ងៃខែឆ្នាំកំណើត: ', value: student.dob,                          cfg: layout.dob         },
+    { label: 'ថ្នាក់ទី: ',          value: student.grade,                        cfg: layout.grade       },
+    { label: 'ឆ្នាំសិក្សា: ',       value: layout.academicYear || '2025-2026',  cfg: layout.year        },
+  ];
+  fields.forEach((f) => {
+    const fs = parseFloat(f.cfg?.fontSize || '14') * scaleX;
+    const fx = parseFloat(f.cfg?.left     || '165px') * scaleX;
+    const fy = parseFloat(f.cfg?.top      || '150px') * scaleY;
+    ctx.font      = `${fs}px Battambang, sans-serif`;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillText(f.label, fx, fy);
+    const labelW = ctx.measureText(f.label).width;
+    ctx.font      = `bold ${fs}px Battambang, sans-serif`;
+    ctx.fillStyle = '#1e40af';
+    ctx.fillText(f.value || '', fx + labelW, fy);
+  });
+
+  // ៤. Watermark
+  if (showWatermark && watermark?.text) {
+    const wmSize    = parseFloat(watermark.size    || '28') * scaleX;
+    const wmOpacity = (parseFloat(watermark.opacity || '20') / 100);
+    const wmAngle   = parseFloat(watermark.angle   || '-45') * (Math.PI / 180);
+    const r = watermark.color_r || '107';
+    const g = watermark.color_g || '114';
+    const b = watermark.color_b || '128';
+    ctx.save();
+    ctx.translate(cW / 2, cH / 2);
+    ctx.rotate(wmAngle);
+    ctx.font      = `${wmSize}px Moul, cursive`;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${wmOpacity})`;
+    ctx.textAlign = 'center';
+    ctx.fillText(watermark.text, 0, 0);
+    ctx.restore();
+  }
+
+  return canvas;
+}
 
 interface StudentSearchProps {
   dbState: DBState;
@@ -28,52 +150,23 @@ export default function StudentSearchTab({
   onSearch,
   isAdmin,
 }: StudentSearchProps) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadCard = async () => {
-    if (!searchedStudent || !cardRef.current) return;
+    if (!searchedStudent) return;
     setIsDownloading(true);
     try {
-      const images = cardRef.current.getElementsByTagName('img');
-      const promises = Array.from(images).map((img: HTMLImageElement) => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      });
-      await Promise.all(promises);
-
-      // Dynamically calculate scale to match background image's original high resolution
-      let downloadScale = 3; // Standard fallback scale (375 * 3 = 1125px width) for crystal-clarity
-      if (layout.bgImage) {
-        await new Promise<void>((resolve) => {
-          const bgImg = new Image();
-          bgImg.crossOrigin = 'anonymous';
-          bgImg.onload = () => {
-            if (bgImg.naturalWidth && bgImg.naturalWidth > 375) {
-              downloadScale = bgImg.naturalWidth / 375;
-            }
-            resolve();
-          };
-          bgImg.onerror = () => {
-            resolve();
-          };
-          bgImg.src = layout.bgImage;
-        });
-      }
-
-      const canvas = await html2canvasSafe(cardRef.current, {
-        scale: downloadScale, // matches original uploaded layout width perfectly
-        useCORS: true,
-        backgroundColor: null,
-        logging: false
-      });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      
+      // គូរ Canvas ដោយផ្ទាល់ — original bg & photo resolution, PNG lossless
+      // watermark បង្ហាញតែចំពោះ public (isAdmin=false)
+      const canvas  = await drawCardToCanvas(
+        searchedStudent,
+        layout,
+        wm,
+        !isAdmin // show watermark for public users only
+      );
+      const imgData = canvas.toDataURL('image/png');
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [75, 100] });
-      doc.addImage(imgData, 'JPEG', 0, 0, 75, 100);
+      doc.addImage(imgData, 'PNG', 0, 0, 75, 100);
       doc.save(`កាតសិស្ស_${searchedStudent.id}_${searchedStudent.name}.pdf`);
     } catch (err) {
       console.error('Download card error:', err);
@@ -222,7 +315,6 @@ export default function StudentSearchTab({
                 <div className="responsive-card-scale">
                   <div
                     id="public-card-render"
-                    ref={cardRef}
                     className="student-card-size bg-white relative no-select overflow-hidden"
                     style={cardBgStyle}
                   >
