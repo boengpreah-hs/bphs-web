@@ -24,7 +24,10 @@ import {
   Download,
   X,
   AlignLeft,
-  ShieldAlert
+  ShieldAlert,
+  Save,
+  Sliders,
+  AlignJustify
 } from 'lucide-react';
 import { DBState, Student, CardLayout, WatermarkSettings } from '../types';
 import { fileToBase64, compressImage } from '../utils';
@@ -34,6 +37,49 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const DEFAULT_AVATAR_DATA_URI = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 160' width='120' height='160'></svg>";
+
+// Helper functions for Khmer Date generation and School keyword extraction
+const getSchoolKeyword = (title: string = 'វិទ្យាល័យបឹងព្រះ') => {
+  if (!title) return 'បឹងព្រះ';
+  let clean = title;
+  const prefixes = ['វិទ្យាល័យ', 'អនុវិទ្យាល័យ', 'សាលាបឋមសិក្សា', 'សាលា'];
+  for (const prefix of prefixes) {
+    if (clean.startsWith(prefix)) {
+      clean = clean.substring(prefix.length).trim();
+      break;
+    }
+  }
+  return clean || 'បឹងព្រះ';
+};
+
+const toKhmerNumber = (numStr: string) => {
+  const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+  return numStr.split('').map(char => {
+    const d = parseInt(char);
+    return isNaN(d) ? char : khmerDigits[d];
+  }).join('');
+};
+
+const getKhmerMonth = (monthIndex: number) => {
+  const months = [
+    'មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា',
+    'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'
+  ];
+  return months[monthIndex] || 'មករា';
+};
+
+const formatKhmerIssueDate = (schoolTitle: string = 'វិទ្យាល័យបឹងព្រះ', dateObj: Date = new Date()) => {
+  const keyword = getSchoolKeyword(schoolTitle);
+  const day = dateObj.getDate();
+  const month = dateObj.getMonth();
+  const year = dateObj.getFullYear();
+  
+  const khmerDay = toKhmerNumber(day < 10 ? `0${day}` : `${day}`);
+  const khmerMonth = getKhmerMonth(month);
+  const khmerYear = toKhmerNumber(`${year}`);
+  
+  return `${keyword} ថ្ងៃទី${khmerDay} ខែ${khmerMonth} ឆ្នាំ${khmerYear}`;
+};
 
 // ======================================================
 // drawCardToCanvas — គូរកាតសិស្សដោយផ្ទាល់ទៅ Canvas
@@ -51,10 +97,11 @@ function loadImg(src: string): Promise<HTMLImageElement | null> {
 }
 
 async function drawCardToCanvas(
-  student: { id: string; name: string; gender: string; dob: string; grade: string; photo?: string },
+  student: any,
   layout: any,
   watermark?: { text?: string; size?: string; opacity?: string; angle?: string; color_r?: string; color_g?: string; color_b?: string },
-  showWatermark = false
+  showWatermark = false,
+  schoolTitle = 'វិទ្យាល័យបឹងព្រះ'
 ): Promise<HTMLCanvasElement> {
   const bgImg    = layout.bgImage ? await loadImg(layout.bgImage) : null;
   const photoImg = student.photo  ? await loadImg(student.photo)  : null;
@@ -89,8 +136,13 @@ async function drawCardToCanvas(
     ctx.fillRect(0, 0, cW, cH);
   }
 
+  const visibleFields = layout.visibleFields || [
+    'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+    'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+  ];
+
   // ២. Student Photo (contain, centered in slot)
-  if (photoImg) {
+  if (photoImg && visibleFields.includes('photo')) {
     const pl = parseFloat(layout.photo?.left   || '25px');
     const pt = parseFloat(layout.photo?.top    || '115px');
     const pw = parseFloat(layout.photo?.width  || '120px');
@@ -105,31 +157,34 @@ async function drawCardToCanvas(
     ctx.drawImage(photoImg, dx, dy, dw, dh);
   }
 
-  // ៣. Text fields
+  // ៣. Text fields (Draw only the data value text directly)
   ctx.textBaseline = 'top';
+  
   const fields = [
-    { key: 'id',          label: 'អត្តលេខ: ',         value: student.id,                           cfg: layout.id          },
-    { key: 'name',        label: 'ឈ្មោះ: ',            value: student.name,                         cfg: layout.name        },
-    { key: 'gender',      label: 'ភេទ: ',              value: student.gender,                        cfg: layout.gender      },
-    { key: 'nationality', label: 'សញ្ជាតិ: ',          value: 'ខ្មែរ',                             cfg: layout.nationality },
-    { key: 'dob',         label: 'ថ្ងៃខែឆ្នាំកំណើត: ', value: student.dob,                           cfg: layout.dob         },
-    { key: 'grade',       label: 'ថ្នាក់ទី: ',          value: student.grade,                         cfg: layout.grade       },
-    { key: 'year',        label: 'ឆ្នាំសិក្សា: ',       value: layout.academicYear || '2025-2026',   cfg: layout.year        },
+    { key: 'id',          value: student.id,                                                                           cfg: layout.id          },
+    { key: 'name',        value: student.name,                                                                         cfg: layout.name        },
+    { key: 'gender',      value: student.gender,                                                                       cfg: layout.gender      },
+    { key: 'nationality', value: 'ខ្មែរ',                                                                              cfg: layout.nationality },
+    { key: 'dob',         value: student.dob,                                                                          cfg: layout.dob         },
+    { key: 'grade',       value: student.grade,                                                                        cfg: layout.grade       },
+    { key: 'year',        value: layout.academicYear || '2025-2026',                                                   cfg: layout.year        },
+    { key: 'addressLocal',  value: student.village && student.commune ? `${student.village} ${student.commune}` : 'ភូមិដីថុយ ឃុំបឹងព្រះ',               cfg: layout.addressLocal   },
+    { key: 'addressRegion', value: student.district && student.province ? `${student.district} ${student.province}` : 'ស្រុកបាភ្នំ ខេត្តព្រៃវែង',         cfg: layout.addressRegion  },
+    { key: 'fatherName',  value: student.fatherName || 'យាប ឆាន',                                                   cfg: layout.fatherName   },
+    { key: 'motherName',  value: student.motherName || 'ញិល នាប',                                                   cfg: layout.motherName   },
+    { key: 'issueDate',   value: formatKhmerIssueDate(schoolTitle),                                                    cfg: layout.issueDate    },
   ];
 
   fields.forEach((f) => {
-    const fs = parseFloat(f.cfg?.fontSize || '14') * scaleX;
-    const fx = parseFloat(f.cfg?.left     || '165px') * scaleX;
-    const fy = parseFloat(f.cfg?.top      || '150px') * scaleY;
+    if (!visibleFields.includes(f.key)) return;
+    const fCfg = f.cfg || { left: '165px', top: '150px', fontSize: '14' };
+    const fs = parseFloat(fCfg.fontSize || '14') * scaleX;
+    const fx = parseFloat(fCfg.left     || '165px') * scaleX;
+    const fy = parseFloat(fCfg.top      || '150px') * scaleY;
 
-    ctx.font      = `${fs}px Battambang, sans-serif`;
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillText(f.label, fx, fy);
-
-    const labelW = ctx.measureText(f.label).width;
     ctx.font      = `bold ${fs}px Battambang, sans-serif`;
     ctx.fillStyle = '#1e40af';
-    ctx.fillText(f.value || '', fx + labelW, fy);
+    ctx.fillText(f.value || '', fx, fy);
   });
 
   // ៤. Watermark (optional)
@@ -435,7 +490,7 @@ export default function AdminPanel({
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [localLayout, setLocalLayout] = useState<any>(null);
   const [previewStudent, setPreviewStudent] = useState<Student | null>(null);
-  const [isLayoutLocked, setIsLayoutLocked] = useState<boolean>(true);
+  const [isLayoutLocked, setIsLayoutLocked] = useState<boolean>(false);
   const [isDownloadingSingle, setIsDownloadingSingle] = useState<boolean>(false);
 
   // Student form inputs
@@ -745,16 +800,18 @@ export default function AdminPanel({
     const currentLayout = { ...dbState.card_layout };
     
     targets.forEach(fKey => {
-      const fieldObj = (currentLayout as any)[fKey];
-      if (fieldObj) {
-        const leftVal = parseInt(fieldObj.left || '10px');
-        const topVal = parseInt(fieldObj.top || '10px');
-
-        if (dir === 'up') fieldObj.top = `${topVal - amt}px`;
-        if (dir === 'down') fieldObj.top = `${topVal + amt}px`;
-        if (dir === 'left') fieldObj.left = `${leftVal - amt}px`;
-        if (dir === 'right') fieldObj.left = `${leftVal + amt}px`;
+      let fieldObj = (currentLayout as any)[fKey];
+      if (!fieldObj) {
+        fieldObj = { left: '165px', top: '150px', fontSize: '14' };
+        (currentLayout as any)[fKey] = fieldObj;
       }
+      const leftVal = parseInt(fieldObj.left || '10px');
+      const topVal = parseInt(fieldObj.top || '10px');
+
+      if (dir === 'up') fieldObj.top = `${topVal - amt}px`;
+      if (dir === 'down') fieldObj.top = `${topVal + amt}px`;
+      if (dir === 'left') fieldObj.left = `${leftVal - amt}px`;
+      if (dir === 'right') fieldObj.left = `${leftVal + amt}px`;
     });
 
     onUpdateDB({ card_layout: currentLayout });
@@ -767,10 +824,12 @@ export default function AdminPanel({
     
     targets.forEach(fKey => {
       if (fKey === 'photo') return;
-      const fieldObj = (currentLayout as any)[fKey];
-      if (fieldObj) {
-        fieldObj.fontSize = size;
+      let fieldObj = (currentLayout as any)[fKey];
+      if (!fieldObj) {
+        fieldObj = { left: '165px', top: '150px', fontSize: '14' };
+        (currentLayout as any)[fKey] = fieldObj;
       }
+      fieldObj.fontSize = size;
     });
 
     onUpdateDB({ card_layout: currentLayout });
@@ -778,9 +837,6 @@ export default function AdminPanel({
 
   // Direct Mouse/Touch dragging functions
   const startDragField = (e: React.MouseEvent | React.TouchEvent, fKey: string) => {
-    if (isLayoutLocked) {
-      return;
-    }
     e.preventDefault();
     e.stopPropagation();
 
@@ -795,20 +851,18 @@ export default function AdminPanel({
     const startY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
 
     const initialPositions: { [key: string]: { left: number; top: number } } = {};
-    const baseLayout = { ...dbState.card_layout };
+    const baseLayout = JSON.parse(JSON.stringify(dbState.card_layout));
 
     targets.forEach(key => {
-      const fObj = (baseLayout as any)[key];
-      if (fObj) {
-        initialPositions[key] = {
-          left: parseInt(fObj.left || '10px'),
-          top: parseInt(fObj.top || '10px'),
-        };
-      }
+      const fObj = baseLayout[key] || { left: '165px', top: '150px' };
+      initialPositions[key] = {
+        left: parseInt(fObj.left || '10px'),
+        top: parseInt(fObj.top || '10px'),
+      };
     });
 
-    // Create custom transient layout for buttery-smooth interaction
-    let dynamicLayout = { ...dbState.card_layout };
+    // Create custom transient layout for buttery-smooth interaction with deep cloning
+    let dynamicLayout = JSON.parse(JSON.stringify(dbState.card_layout));
 
     const onPointerMove = (moveEv: MouseEvent | TouchEvent) => {
       const curX = 'clientX' in moveEv ? moveEv.clientX : (moveEv.touches?.[0]?.clientX || 0);
@@ -817,16 +871,21 @@ export default function AdminPanel({
       const dx = curX - startX;
       const dy = curY - startY;
 
-      dynamicLayout = { ...dbState.card_layout };
+      const nextLayout = JSON.parse(JSON.stringify(dbState.card_layout));
       targets.forEach(key => {
         const init = initialPositions[key];
-        const fObj = (dynamicLayout as any)[key];
-        if (init && fObj) {
+        let fObj = nextLayout[key];
+        if (!fObj) {
+          fObj = { left: '165px', top: '150px' };
+          nextLayout[key] = fObj;
+        }
+        if (init) {
           fObj.left = `${init.left + dx}px`;
           fObj.top = `${init.top + dy}px`;
         }
       });
 
+      dynamicLayout = nextLayout;
       setLocalLayout(dynamicLayout);
     };
 
@@ -847,15 +906,15 @@ export default function AdminPanel({
   };
 
   const alignLeftByTopmost = () => {
-    const targets = selectedFields.length > 0 ? selectedFields : ['photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'];
+    const targets = selectedFields.length > 0 ? selectedFields : ['photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year', 'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'];
     if (targets.length <= 1) return;
-    const currentLayout = { ...dbState.card_layout };
+    const currentLayout = JSON.parse(JSON.stringify(dbState.card_layout));
     
     let topmostKey: string | null = null;
     let minTop = Infinity;
     
     targets.forEach(key => {
-      const fObj = (currentLayout as any)[key];
+      const fObj = currentLayout[key];
       if (fObj) {
         const topVal = parseInt(fObj.top || '0');
         if (topVal < minTop) {
@@ -866,15 +925,47 @@ export default function AdminPanel({
     });
 
     if (topmostKey) {
-      const targetLeft = ((currentLayout as any)[topmostKey]).left;
+      const targetLeft = currentLayout[topmostKey].left || '165px';
       targets.forEach(key => {
-        const fObj = (currentLayout as any)[key];
-        if (fObj) {
-          fObj.left = targetLeft;
+        if (!currentLayout[key]) {
+          currentLayout[key] = { left: '165px', top: '150px' };
         }
+        currentLayout[key].left = targetLeft;
       });
       onUpdateDB({ card_layout: currentLayout });
     }
+  };
+
+  const distributeVerticallyEqually = () => {
+    // Spacer for student selectable text fields (filtering photo since image dimension shouldn't spread equally with text)
+    const targets = selectedFields.filter(k => k !== 'photo');
+    if (targets.length < 3) {
+      alert('សូមជ្រើសរើសយ៉ាងហោចណាស់ ៣ ព័ត៌មានអក្សរ (Text Elements) ដើម្បីចែកចាយគម្លាតស្មើគ្នា!');
+      return;
+    }
+    const currentLayout = JSON.parse(JSON.stringify(dbState.card_layout));
+    
+    // Extract and sort by top position
+    const fieldTops = targets
+      .map(key => {
+        const fObj = currentLayout[key] || { left: '165px', top: '150px' };
+        return { key, top: parseInt(fObj.top || '150px') };
+      })
+      .sort((a, b) => a.top - b.top);
+      
+    const minTop = fieldTops[0].top;
+    const maxTop = fieldTops[fieldTops.length - 1].top;
+    const totalSpan = maxTop - minTop;
+    const gap = totalSpan / (fieldTops.length - 1);
+    
+    fieldTops.forEach((item, index) => {
+      if (!currentLayout[item.key]) {
+        currentLayout[item.key] = { left: '165px', top: '150px' };
+      }
+      currentLayout[item.key].top = `${Math.round(minTop + index * gap)}px`;
+    });
+    
+    onUpdateDB({ card_layout: currentLayout });
   };
 
   const startResizePhotoCorner = (e: React.MouseEvent | React.TouchEvent, corner: 'tl' | 'tr' | 'bl' | 'br') => {
@@ -1665,7 +1756,56 @@ export default function AdminPanel({
               </div>
 
               <div className="border-t pt-2 space-y-2">
-                <span className="font-bold text-gray-600 block">៣. ជ្រើសរើសចម្រាញ់ធាតុដែលត្រូវកែតម្រឹម</span>
+                <span className="font-bold text-gray-600 block">៣. ជ្រើសរើសព័ត៌មានដែលត្រូវបង្ហាញលើកាត (Show/Hide)</span>
+                <div className="grid grid-cols-2 gap-1 bg-white p-2 border rounded-lg">
+                  {[
+                    { k: 'photo', n: 'រូបថតសិស្ស' },
+                    { k: 'id', n: 'អត្តលេខ' },
+                    { k: 'name', n: 'ឈ្មោះសិស្ស' },
+                    { k: 'gender', n: 'ភេទ' },
+                    { k: 'nationality', n: 'សញ្ជាតិ' },
+                    { k: 'dob', n: 'ថ្ងៃកំណើត' },
+                    { k: 'grade', n: 'ថ្នាក់ទី' },
+                    { k: 'year', n: 'ឆ្នាំសិក្សា' },
+                    { k: 'addressLocal', n: 'ភូមិ និងឃុំ' },
+                    { k: 'addressRegion', n: 'ស្រុក និងខេត្ត' },
+                    { k: 'fatherName', n: 'ឈ្មោះឪពុក' },
+                    { k: 'motherName', n: 'ឈ្មោះម្ដាយ' },
+                    { k: 'issueDate', n: 'កាលបរិច្ឆេទចេញកាត' }
+                  ].map(item => {
+                    const currentLayout = dbState.card_layout;
+                    const visibleFields = currentLayout.visibleFields || [
+                      'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                      'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                    ];
+                    const isVisible = visibleFields.includes(item.k);
+                    
+                    return (
+                      <label key={`vis-${item.k}`} className="flex items-center gap-1.5 p-1 cursor-pointer select-none text-[10px] hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={isVisible}
+                          onChange={(e) => {
+                            let updatedFields = [...visibleFields];
+                            if (e.target.checked) {
+                              if (!updatedFields.includes(item.k)) updatedFields.push(item.k);
+                            } else {
+                              updatedFields = updatedFields.filter(val => val !== item.k);
+                            }
+                            const updatedLayout = { ...currentLayout, visibleFields: updatedFields };
+                            onUpdateDB({ card_layout: updatedLayout });
+                          }}
+                          className="accent-green-600 w-3.5 h-3.5"
+                        />
+                        <span className={isVisible ? "font-bold text-green-700" : "text-gray-400"}>{item.n}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-t pt-2 space-y-2">
+                <span className="font-bold text-gray-650 block">៤. ជ្រើសរើសចម្រាញ់ធាតុដែលត្រូវកែតម្រឹម (Select element to edit)</span>
                 <select
                   value={selectedField || ''}
                   onChange={(e) => {
@@ -1684,6 +1824,11 @@ export default function AdminPanel({
                   <option value="dob">ថ្ងៃខែឆ្នាំកំណើត</option>
                   <option value="grade">ថ្នាក់ទី</option>
                   <option value="year">ឆ្នាំសិក្សា</option>
+                  <option value="addressLocal">ភូមិ និងឃុំ (រួមគ្នា)</option>
+                  <option value="addressRegion">ស្រុក និងខេត្ត (រួមគ្នា)</option>
+                  <option value="fatherName">ឈ្មោះឪពុក</option>
+                  <option value="motherName">ឈ្មោះម្ដាយ</option>
+                  <option value="issueDate">កាលបរិច្ឆេទចេញកាត</option>
                 </select>
 
                 <div className="pt-2 space-y-1">
@@ -1697,7 +1842,12 @@ export default function AdminPanel({
                       { k: 'nationality', n: 'សញ្ជាតិ' },
                       { k: 'dob', n: 'ថ្ងៃកំណើត' },
                       { k: 'grade', n: 'ថ្នាក់ទី' },
-                      { k: 'year', n: 'ឆ្នាំសិក្សា' }
+                      { k: 'year', n: 'ឆ្នាំសិក្សា' },
+                      { k: 'addressLocal', n: 'ភូមិ និងឃុំ' },
+                      { k: 'addressRegion', n: 'ស្រុក និងខេត្ត' },
+                      { k: 'fatherName', n: 'ឈ្មោះឪពុក' },
+                      { k: 'motherName', n: 'ឈ្មោះម្ដាយ' },
+                      { k: 'issueDate', n: 'កាលបរិច្ឆេទចេញកាត' }
                     ].map(item => {
                       const active = selectedFields.includes(item.k);
                       return (
@@ -1726,7 +1876,7 @@ export default function AdminPanel({
                     <button
                       type="button"
                       onClick={() => {
-                        const keys = ['photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'];
+                        const keys = ['photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year', 'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'];
                         setSelectedFields(keys);
                         setSelectedField(keys[0]);
                       }}
@@ -1752,9 +1902,9 @@ export default function AdminPanel({
                 <div className="bg-white p-3 rounded-lg border shadow-3xs space-y-3">
                   <div className="text-[11px] font-bold text-blue-700 font-battambang">
                     ធាតុសកម្ម៖ {(() => {
-                      const activeList = selectedFields.length > 0 ? selectedFields : [selectedField];
-                      return activeList.join(', ').toUpperCase();
-                    })()}
+                    const activeList = selectedFields.length > 0 ? selectedFields : [selectedField];
+                    return activeList.join(', ').toUpperCase();
+                  })()}
                   </div>
 
                   {/* Positioning directions for Android, iOS mobile touch support! */}
@@ -1800,9 +1950,16 @@ export default function AdminPanel({
                     <button
                       type="button"
                       onClick={() => alignLeftByTopmost()}
-                      className="w-full py-1.5 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-md text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98]"
+                      className="w-full py-1.5 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-md text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98] mb-1.5"
                     >
                       <AlignLeft className="w-3.5 h-3.5" /> តម្រឹមខាងឆ្វេង (យកខាងលើជាគោល)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => distributeVerticallyEqually()}
+                      className="w-full py-1.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-md text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition active:scale-[0.98]"
+                    >
+                      <AlignJustify className="w-3.5 h-3.5" /> ចែកគម្លាតលើក្រោមស្មើគ្នា (Vertical Spacing)
                     </button>
                   </div>
 
@@ -1814,7 +1971,7 @@ export default function AdminPanel({
                         type="range"
                         min="10"
                         max="32"
-                        value={(dbState.card_layout as any)[selectedField].fontSize || '14'}
+                        value={((dbState.card_layout as any)[selectedField || 'name'] || { fontSize: '14' }).fontSize || '14'}
                         onChange={(e) => adjustFontSize(e.target.value)}
                         className="w-full accent-amber-500"
                       />
@@ -1853,198 +2010,166 @@ export default function AdminPanel({
               )}
             </div>
 
-            {/* Simulated Live visual preview card frame */}
-            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-100 py-6 px-2 rounded-2xl border-2 border-dashed border-gray-300">
-              {/* Lock Layout Toggler */}
-              <div className="w-full max-w-[375px] mb-4 bg-white p-2.5 rounded-xl border flex items-center justify-between gap-3 font-battambang shadow-2xs">
-                <div className="flex items-center gap-1.5">
-                  {isLayoutLocked ? (
-                    <span className="flex items-center gap-1 text-[11px] text-red-600 font-bold bg-red-50 px-2.5 py-1 rounded-md">
-                      🔒 បានចាក់សោស្ទួនប្លង់
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[11px] text-green-600 font-bold bg-green-50 px-2.5 py-1 rounded-md animate-pulse">
-                      🔓 បើកសោបង្ខំផ្លាស់ទី
-                    </span>
-                  )}
-                </div>
-                {isLayoutLocked ? (
-                  <button
-                    onClick={() => {
-                      setIsLayoutLocked(false);
-                    }}
-                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95"
-                  >
-                    🔓 បើកសោដើម្បីកែប្លង់
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setIsLayoutLocked(true);
-                      alert('រក្សាទុក និងចាក់សោរប្លង់បានជោគជ័យ! ប្លង់ត្រូវបានចាក់សោរដើម្បីការពារការរំកិលរំខានដោយអចេតនា។');
-                    }}
-                    className="px-3.5 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-[10px] font-bold cursor-pointer transition active:scale-95"
-                  >
-                    🔒 រក្សាទុក និងចាក់សោរ
-                  </button>
-                )}
-              </div>
-
-              <span className="block text-[10px] text-gray-400 font-bold mb-2 font-battambang uppercase tracking-wider">
-                {isLayoutLocked 
-                  ? "⚠️ ប្លង់កំពុងជាប់សោរ (សូមបើកសោដើម្បីចាប់អូសទាញទីតាំង)"
-                  : "* អាចចុចអូសទាញ (Drag & Drop) លើធាតុនីមួយៗផ្ទាល់ និងអូសជ្រុងរូបថតដើម្បីពង្រីក-បង្រួម"
-                }
+            {/* Simulated Live visual preview card frame - 30% Larger Visuals */}
+            <div className="lg:col-span-7 flex flex-col items-center justify-center bg-slate-50 py-10 px-4 rounded-2xl border-2 border-dashed border-amber-300 relative overflow-hidden" style={{ minHeight: '720px' }}>
+              <span className="block text-[11px] text-amber-700 font-bold mb-5 font-battambang uppercase tracking-wider text-center">
+                ✨ ចាប់អូសទាញ (Drag & Drop) ធាតុផ្ទាល់លើកាត និងតម្រឹមទីតាំងឱ្យបានស្អាត
               </span>
-              <div className="relative bg-white p-2.5 rounded shadow-lg border border-gray-150">
-                <div
-                  id="designer-card-render"
-                  className="student-card-size bg-white relative overflow-hidden"
-                  style={
-                    (() => {
+              
+              <div className="relative overflow-visible flex items-center justify-center" style={{ width: '487.5px', height: '650px' }}>
+                <div style={{ transform: 'scale(1.3)', transformOrigin: 'center center' }} className="relative bg-white p-2 text-slate-800 rounded shadow-2xl border border-gray-250">
+                  <div
+                    id="designer-card-render"
+                    className="student-card-size bg-white relative overflow-hidden"
+                    style={
+                      (() => {
+                        const currentLayout = localLayout || dbState.card_layout;
+                        return currentLayout.bgImage
+                          ? {
+                              backgroundImage: `url(${currentLayout.bgImage})`,
+                              backgroundSize: `${currentLayout.bgSizeWidth || '100'}% ${
+                                currentLayout.bgSizeHeight || '100'
+                              }%`,
+                              backgroundPosition: `${currentLayout.bgPositionX || '0'}px ${
+                                currentLayout.bgPositionY || '0'
+                              }px`,
+                              backgroundRepeat: 'no-repeat',
+                            }
+                          : { backgroundColor: '#ffffff' };
+                      })()
+                    }
+                  >
+                    {/* Photo mockup */}
+                    {(() => {
                       const currentLayout = localLayout || dbState.card_layout;
-                      return currentLayout.bgImage
-                        ? {
-                            backgroundImage: `url(${currentLayout.bgImage})`,
-                            backgroundSize: `${currentLayout.bgSizeWidth || '100'}% ${
-                              currentLayout.bgSizeHeight || '100'
-                            }%`,
-                            backgroundPosition: `${currentLayout.bgPositionX || '0'}px ${
-                              currentLayout.bgPositionY || '0'
-                            }px`,
-                            backgroundRepeat: 'no-repeat',
-                          }
-                        : { backgroundColor: '#ffffff' };
-                    })()
-                  }
-                >
-                  {/* Photo mockup */}
-                  {(() => {
-                    const currentLayout = localLayout || dbState.card_layout;
-                    const isSelected = selectedFields.includes('photo') || selectedField === 'photo';
-                    return (
-                      <div
-                        onClick={(e) => {
-                          let updated = [...selectedFields];
-                          if (updated.includes('photo')) {
-                            updated = updated.filter(val => val !== 'photo');
-                          } else {
-                            updated.push('photo');
-                          }
-                          setSelectedFields(updated);
-                          setSelectedField(updated[0] || null);
-                        }}
-                        onMouseDown={(e) => startDragField(e, 'photo')}
-                        onTouchStart={(e) => startDragField(e, 'photo')}
-                        className={`absolute font-battambang select-none overflow-hidden z-20 ${
-                          isLayoutLocked ? 'cursor-default' : 'cursor-grab'
-                        } ${
-                          isSelected && !isLayoutLocked ? 'ring-2 ring-blue-500 ring-offset-2 border-dashed border-blue-400 bg-blue-50/20' : ''
-                        }`}
-                        style={{
-                          left: currentLayout.photo.left,
-                          top: currentLayout.photo.top,
-                          width: currentLayout.photo.width || '120px',
-                          height: currentLayout.photo.height || '160px',
-                        }}
-                      >
-                        <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-                          <span className="text-[10px] text-gray-500 font-bold">រូបថត mockup</span>
-                          {!isLayoutLocked && isSelected && (
-                            <>
-                              {/* Top-Left */}
-                              <div
-                                onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tl'); }}
-                                onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tl'); }}
-                                className="absolute top-0 left-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nwse-resize rounded-full border border-white z-30 shadow-sm transform -translate-x-1/2 -translate-y-1/2"
-                                title="អូសពង្រីក-បង្រួម (ឆ្វេង-លើ)"
-                              />
-                              {/* Top-Right */}
-                              <div
-                                onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tr'); }}
-                                onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tr'); }}
-                                className="absolute top-0 right-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nesw-resize rounded-full border border-white z-30 shadow-sm transform translate-x-1/2 -translate-y-1/2"
-                                title="អូសពង្រីក-បង្រួម (ស្តាំ-លើ)"
-                              />
-                              {/* Bottom-Left */}
-                              <div
-                                onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'bl'); }}
-                                onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'bl'); }}
-                                className="absolute bottom-0 left-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nesw-resize rounded-full border border-white z-30 shadow-sm transform -translate-x-1/2 translate-y-1/2"
-                                title="អូសពង្រីក-បង្រួម (ឆ្វេង-ក្រោម)"
-                              />
-                              {/* Bottom-Right */}
-                              <div
-                                onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'br'); }}
-                                onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'br'); }}
-                                className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nwse-resize rounded-full border border-white z-30 shadow-sm transform translate-x-1/2 translate-y-1/2"
-                                title="អូសពង្រីក-បង្រួម (ស្តាំ-ក្រោម)"
-                              />
-                            </>
-                          )}
+                      const visibleFields = currentLayout.visibleFields || [
+                        'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                        'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                      ];
+                      if (!visibleFields.includes('photo')) return null;
+                      
+                      const isSelected = selectedFields.includes('photo') || selectedField === 'photo';
+                      return (
+                        <div
+                          onClick={(e) => {
+                            let updated = [...selectedFields];
+                            if (updated.includes('photo')) {
+                              updated = updated.filter(val => val !== 'photo');
+                            } else {
+                              updated.push('photo');
+                            }
+                            setSelectedFields(updated);
+                            setSelectedField(updated[0] || null);
+                          }}
+                          onMouseDown={(e) => startDragField(e, 'photo')}
+                          onTouchStart={(e) => startDragField(e, 'photo')}
+                          className={`absolute font-battambang select-none overflow-hidden z-20 cursor-grab ${
+                            isSelected ? 'ring-2 ring-blue-500 ring-offset-2 border-dashed border-blue-400 bg-blue-50/20' : ''
+                          }`}
+                          style={{
+                            left: currentLayout.photo.left,
+                            top: currentLayout.photo.top,
+                            width: currentLayout.photo.width || '120px',
+                            height: currentLayout.photo.height || '160px',
+                          }}
+                        >
+                          <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
+                            <span className="text-[10px] text-gray-500 font-bold">រូបថត mockup</span>
+                            {isSelected && (
+                              <>
+                                {/* Top-Left */}
+                                <div
+                                  onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tl'); }}
+                                  onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tl'); }}
+                                  className="absolute top-0 left-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nwse-resize rounded-full border border-white z-30 shadow-sm transform -translate-x-1/2 -translate-y-1/2"
+                                  title="អូសពង្រីក-បង្រួម (ឆ្វេង-លើ)"
+                                />
+                                {/* Top-Right */}
+                                <div
+                                  onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tr'); }}
+                                  onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'tr'); }}
+                                  className="absolute top-0 right-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nesw-resize rounded-full border border-white z-30 shadow-sm transform translate-x-1/2 -translate-y-1/2"
+                                  title="អូសពង្រីក-បង្រួម (ស្តាំ-លើ)"
+                                />
+                                {/* Bottom-Left */}
+                                <div
+                                  onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'bl'); }}
+                                  onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'bl'); }}
+                                  className="absolute bottom-0 left-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nesw-resize rounded-full border border-white z-30 shadow-sm transform -translate-x-1/2 translate-y-1/2"
+                                  title="អូសពង្រីក-បង្រួម (ឆ្វេង-ក្រោម)"
+                                />
+                                {/* Bottom-Right */}
+                                <div
+                                  onMouseDown={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'br'); }}
+                                  onTouchStart={(e) => { e.stopPropagation(); startResizePhotoCorner(e, 'br'); }}
+                                  className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-blue-600 hover:bg-blue-500 cursor-nwse-resize rounded-full border border-white z-30 shadow-sm transform translate-x-1/2 translate-y-1/2"
+                                  title="អូសពង្រីក-បង្រួម (ស្តាំ-ក្រោម)"
+                                />
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
 
-                  {/* Rest text Mockups */}
-                  {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'].map((key) => {
-                    const currentLayout = localLayout || dbState.card_layout;
-                    const fConfig = (currentLayout as any)[key];
-                    
-                    const label = {
-                      id: 'អត្តលេខ: ',
-                      name: 'ឈ្មោះ: ',
-                      gender: 'ភេទ: ',
-                      nationality: 'សញ្ជាតិ: ',
-                      dob: 'ថ្ងៃខែឆ្នាំកំណើត: ',
-                      grade: 'ថ្នាក់ទី: ',
-                      year: 'ឆ្នាំសិក្សា: ',
-                    }[key];
+                    {/* Rest text Mockups - Renders only raw data field values, NO labels at all */}
+                    {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year', 'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'].map((key) => {
+                      const currentLayout = localLayout || dbState.card_layout;
+                      const visibleFields = currentLayout.visibleFields || [
+                        'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                        'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                      ];
+                      if (!visibleFields.includes(key)) return null;
 
-                    const value = {
-                      id: '001',
-                      name: 'ស៊ន សុភ័ក្ត្រ',
-                      gender: 'ប្រុស',
-                      nationality: 'ខ្មែរ',
-                      dob: '១៥-មករា-២០០៨',
-                      grade: '១២A',
-                      year: currentLayout.academicYear || '2025-2026',
-                    }[key];
+                      const fConfig = currentLayout[key] || { left: '165px', top: '150px', fontSize: '14' };
+                      
+                      const value = {
+                        id: '01',
+                        name: 'ឆាន កញ្ញា',
+                        gender: 'ស្រី',
+                        nationality: 'ខ្មែរ',
+                        dob: '០១ កញ្ញា 2008',
+                        grade: '12A',
+                        year: currentLayout.academicYear || '2025-2026',
+                        addressLocal: 'ភូមិដីថុយ ឃុំបឹងព្រះ',
+                        addressRegion: 'ស្រុកបាភ្នំ ខេត្តព្រៃវែង',
+                        fatherName: 'យាប ឆាន',
+                        motherName: 'ញិល នាប',
+                        issueDate: formatKhmerIssueDate('វិទ្យាល័យបឹងព្រះ', new Date(2026, 10, 2))
+                      }[key];
 
-                    const isSelected = selectedFields.includes(key) || selectedField === key;
-                    return (
-                      <div
-                        key={key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          let updated = [...selectedFields];
-                          if (updated.includes(key)) {
-                            updated = updated.filter(val => val !== key);
-                          } else {
-                            updated.push(key);
-                          }
-                          setSelectedFields(updated);
-                          setSelectedField(updated[0] || null);
-                        }}
-                        onMouseDown={(e) => startDragField(e, key)}
-                        onTouchStart={(e) => startDragField(e, key)}
-                        className={`absolute font-battambang select-none z-20 font-bold whitespace-nowrap px-1 rounded border border-transparent ${
-                          isLayoutLocked ? 'cursor-default' : 'cursor-grab'
-                        } ${
-                          isSelected && !isLayoutLocked ? 'text-blue-600 border-dashed border-blue-400 bg-blue-50/50 scale-102 shadow-xs' : 'hover:bg-slate-50'
-                        }`}
-                        style={{
-                          left: fConfig.left,
-                          top: fConfig.top,
-                          fontSize: `${fConfig.fontSize || '14'}px`,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {label}<span className="text-blue-800">{value}</span>
-                      </div>
-                    );
-                  })}
+                      const isSelected = selectedFields.includes(key) || selectedField === key;
+                      return (
+                        <div
+                          key={key}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            let updated = [...selectedFields];
+                            if (updated.includes(key)) {
+                              updated = updated.filter(val => val !== key);
+                            } else {
+                              updated.push(key);
+                            }
+                            setSelectedFields(updated);
+                            setSelectedField(updated[0] || null);
+                          }}
+                          onMouseDown={(e) => startDragField(e, key)}
+                          onTouchStart={(e) => startDragField(e, key)}
+                          className={`absolute font-battambang select-none z-20 font-bold whitespace-nowrap px-1 rounded border border-transparent cursor-grab ${
+                            isSelected ? 'text-blue-700 border-dashed border-blue-400 bg-blue-50/50 scale-102 shadow-xs' : 'hover:bg-slate-50'
+                          }`}
+                          style={{
+                            left: fConfig.left,
+                            top: fConfig.top,
+                            fontSize: `${fConfig.fontSize || '14'}px`,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <span className="text-blue-800">{value}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2522,40 +2647,45 @@ export default function AdminPanel({
                 }
               >
                 {/* Photo */}
-                <div
-                  className="absolute"
-                  style={{
-                    left: dbState?.card_layout?.photo?.left || '25px',
-                    top: dbState?.card_layout?.photo?.top || '115px',
-                    width: dbState?.card_layout?.photo?.width || '120px',
-                    height: dbState?.card_layout?.photo?.height || '160px',
-                  }}
-                >
-                  {previewStudent.photo ? (
-                    <img
-                      src={previewStudent.photo}
-                      alt={previewStudent.name}
-                      className="w-full h-full object-cover rounded-none"
-                      referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
-                    />
-                  ) : null}
-                </div>
+                {(() => {
+                  const visibleFields = dbState?.card_layout?.visibleFields || [
+                    'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                    'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                  ];
+                  if (!visibleFields.includes('photo')) return null;
+                  return (
+                    <div
+                      className="absolute"
+                      style={{
+                        left: dbState?.card_layout?.photo?.left || '25px',
+                        top: dbState?.card_layout?.photo?.top || '115px',
+                        width: dbState?.card_layout?.photo?.width || '120px',
+                        height: dbState?.card_layout?.photo?.height || '160px',
+                      }}
+                    >
+                      {previewStudent.photo ? (
+                        <img
+                          src={previewStudent.photo}
+                          alt={previewStudent.name}
+                          className="w-full h-full object-cover rounded-none"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })()}
 
-                {/* Text fields matching StudentSearchTab exactly */}
-                {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year'].map((key) => {
+                {/* Text fields matching layout rules - raw values only, NO labels */}
+                {['id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year', 'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'].map((key) => {
+                  const visibleFields = dbState?.card_layout?.visibleFields || [
+                    'photo', 'id', 'name', 'gender', 'nationality', 'dob', 'grade', 'year',
+                    'addressLocal', 'addressRegion', 'fatherName', 'motherName', 'issueDate'
+                  ];
+                  if (!visibleFields.includes(key)) return null;
+
                   const fConfig = (dbState?.card_layout as any)?.[key] || { left: '165px', top: '150px', fontSize: '14' };
                   
-                  const label = {
-                    id: 'អត្តលេខ: ',
-                    name: 'ឈ្មោះ: ',
-                    gender: 'ភេទ: ',
-                    nationality: 'សញ្ជាតិ: ',
-                    dob: 'ថ្ងៃខែឆ្នាំកំណើត: ',
-                    grade: 'ថ្នាក់ទី: ',
-                    year: 'ឆ្នាំសិក្សា: ',
-                  }[key];
-
                   const value = {
                     id: previewStudent.id,
                     name: previewStudent.name,
@@ -2564,12 +2694,17 @@ export default function AdminPanel({
                     dob: previewStudent.dob,
                     grade: previewStudent.grade,
                     year: dbState?.card_layout?.academicYear || '2025-2026',
+                    addressLocal: previewStudent.village && previewStudent.commune ? `${previewStudent.village} ${previewStudent.commune}` : 'ភូមិដីថុយ ឃុំបឹងព្រះ',
+                    addressRegion: previewStudent.district && previewStudent.province ? `${previewStudent.district} ${previewStudent.province}` : 'ស្រុកបាភ្នំ ខេត្តព្រៃវែង',
+                    fatherName: previewStudent.fatherName || 'យាប ឆាន',
+                    motherName: previewStudent.motherName || 'ញិល នាប',
+                    issueDate: formatKhmerIssueDate('វិទ្យាល័យបឹងព្រះ')
                   }[key];
 
                   return (
                     <div
                       key={key}
-                      className="absolute font-battambang font-bold whitespace-nowrap text-gray-900"
+                      className="absolute font-battambang font-bold whitespace-nowrap text-blue-800"
                       style={{
                         left: fConfig.left || '165px',
                         top: fConfig.top || '150px',
@@ -2577,7 +2712,7 @@ export default function AdminPanel({
                         lineHeight: 1.2,
                       }}
                     >
-                      {label}<span className="text-blue-800">{value}</span>
+                      {value}
                     </div>
                   );
                 })}
